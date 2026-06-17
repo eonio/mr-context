@@ -34,7 +34,9 @@ export class MrcAgent {
 
     const unenriched = this.graph.nodes.filter((n) => !n.summary).length;
     if (unenriched > 0 && !token.isCancellationRequested) {
-      await this.runEnrichment(token);
+      // Fire enrichment in background so initialize() resolves immediately.
+      // Tool calls get the syntactic graph right away; summaries fill in over time.
+      this.runEnrichment(token).catch(() => {});
     }
   }
 
