@@ -5,6 +5,7 @@ import { MrcPanel } from "./panel.js";
 import { detectSkill } from "../agent/skills.js";
 import type { SkillName } from "../agent/skills.js";
 import { registerMrcTools } from "./lmTools.js";
+import { FileWatcher } from "./watcher.js";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const cts = new vscode.CancellationTokenSource();
@@ -14,13 +15,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // the semantic graph automatically, without an explicit @mrc mention.
   registerMrcTools(context);
 
-  // Pre-warm agent in background so first @mrc invocation is instant
+  // Pre-warm agent in background so first @mrc invocation is instant.
+  // Once ready, start the file watcher for incremental graph updates.
   vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window, title: "Mr. Context: initializing…" },
-    () =>
-      getAgent(cts.token).catch((err: Error) => {
-        vscode.window.showWarningMessage(`Mr. Context: ${err.message}`);
-      })
+    async () => {
+      try {
+        const agent = await getAgent(cts.token);
+        const watcher = new FileWatcher(agent.getConfig(), agent);
+        context.subscriptions.push(watcher.start());
+      } catch (err) {
+        vscode.window.showWarningMessage(`Mr. Context: ${(err as Error).message}`);
+      }
+    }
   );
 
   // ── Commands ──────────────────────────────────────────────────────────────
