@@ -6,7 +6,7 @@ import * as vscode from "vscode";
 import type { SemanticGraph, MrcConfig } from "../shared/types.js";
 import { GRAPH_PATH } from "../shared/config.js";
 import { loadOrBuildGraph, saveGraph, enrichNodes } from "../graph/index.js";
-import { queryGraph, buildScorer } from "../graph/query.js";
+import { queryGraph } from "../graph/query.js";
 import { detectSkill, buildSkillPrompt } from "./skills.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import type { SkillName } from "./skills.js";
@@ -83,20 +83,8 @@ export class MrcAgent {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) return cached.nodes;
 
-    const model = this.model;
-    const cts = new vscode.CancellationTokenSource();
-    const scorer = buildScorer(async (prompt) => {
-      const msgs = [vscode.LanguageModelChatMessage.User(prompt)];
-      const res = await model.sendRequest(msgs, {}, cts.token);
-      let t = "";
-      for await (const p of res.stream) {
-        if (p instanceof vscode.LanguageModelTextPart) t += p.value;
-      }
-      cts.dispose();
-      return t;
-    });
-
-    const nodes = await queryGraph(this.graph, query, k, scorer);
+    // Pure BM25 + graph expansion — no LLM scoring to avoid per-node credit cost.
+    const nodes = await queryGraph(this.graph, query, k);
     this.cache.set(key, { nodes, timestamp: Date.now() });
     return nodes;
   }
@@ -144,7 +132,7 @@ export class MrcAgent {
     messages: vscode.LanguageModelChatMessage[],
     tools: vscode.LanguageModelChatTool[],
     token: vscode.CancellationToken,
-    maxIterations = 5
+    maxIterations = 3
   ): AsyncGenerator<string> {
     for (let i = 0; i < maxIterations; i++) {
       if (token.isCancellationRequested) return;
