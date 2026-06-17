@@ -2,9 +2,9 @@
   "_comment": "Copy this to .mrc/config.json. GitHub token: set GITHUB_TOKEN env var or use `gh auth token`. Never commit the token itself.",
   "_comment_repositories": "Each entry is a URL string (uses the global `branch`) or an object { url, branch } to pin a per-repo branch.",
   "repositories": [
-    "https://github.com/eonio-dev/acme-payments-api",
-    { "url": "https://github.com/eonio-dev/acme-shared-types", "branch": "develop" },
-    { "url": "https://github.com/eonio-dev/acme-frontend", "branch": "release/2024" }
+    "https://github.com/eonio/acme-payments-api",
+    { "url": "https://github.com/eonio/acme-shared-types", "branch": "develop" },
+    { "url": "https://github.com/eonio/acme-frontend", "branch": "release/2024" }
   ],
   "branch": "main",
   "includePatterns": [

@@ -29,7 +29,7 @@ mrc search "payment routing"  # Search without an LLM
 
 ### VS Code Extension
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=eonio-dev.mr-context) or from a `.vsix` file, then use `@mrc` in Copilot Chat:
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=eonio.mr-context) or from a `.vsix` file, then use `@mrc` in Copilot Chat:
 
 ```
 @mrc How does payment routing work?
@@ -147,6 +147,6 @@ control, or `.mrc/` to ignore everything.
 
 ## Repository
 
-**GitHub:** https://github.com/eonio-dev/mr-context  
+**GitHub:** https://github.com/eonio/mr-context  
 **npm:** https://www.npmjs.com/package/mr-context  
 **License:** MIT

@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Skip the version-bump commit itself to avoid an infinite loop
+    if: "!startsWith(github.event.head_commit.message, 'chore: release')"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Determine bump type from conventional commit prefixes since last tag.
+      # BREAKING CHANGE or <type>! → major
+      # feat                       → minor
+      # everything else            → patch
+      - name: Determine bump type
+        id: bump
+        shell: bash
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            LOG=$(git log --pretty="%s")
+          else
+            LOG=$(git log "${LAST_TAG}..HEAD" --pretty="%s")
+          fi
+
+          if echo "$LOG" | grep -qE "^[a-zA-Z]+(\(.+\))?!:" || echo "$LOG" | grep -q "BREAKING CHANGE"; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif echo "$LOG" | grep -qE "^feat(\(.+\))?:"; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      # npm version --no-git-tag-version updates package.json only (no commit, no tag)
+      - name: Bump root package version
+        id: version
+        run: |
+          RAW=$(npm version ${{ steps.bump.outputs.type }} --no-git-tag-version)
+          VERSION="${RAW#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Keep VSCode extension version in sync
+      - name: Sync VSCode extension version
+        run: npm pkg set version="${{ steps.version.outputs.version }}" --prefix src/vscode
+
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json src/vscode/package.json
+          git commit -m "chore: release v${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push --follow-tags
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

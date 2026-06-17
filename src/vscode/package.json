@@ -3,10 +3,10 @@
   "displayName": "Mr. Context",
   "description": "Multi-Repository semantic graph context for GitHub Copilot. Reduce hallucinations and token waste during AI-assisted development.",
   "version": "1.0.0",
-  "publisher": "eonio-dev",
+  "publisher": "eonio",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eonio-dev/mr-context"
+    "url": "https://github.com/eonio/mr-context"
   },
   "license": "MIT",
   "engines": {

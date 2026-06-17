@@ -15,7 +15,7 @@ program
   .description(
     chalk.cyan("Mr. Context") +
       " — Multi-Repository Context Agent\n" +
-      chalk.gray("  https://github.com/eonio-dev/mr-context")
+      chalk.gray("  https://github.com/eonio/mr-context")
   )
   .version(VERSION)
   .addHelpText(

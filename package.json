@@ -2,13 +2,13 @@
   "name": "mr-context",
   "version": "1.0.0",
   "description": "Multi-Repository Context Agent — semantic graph context for AI-assisted development via GitHub Copilot",
-  "homepage": "https://github.com/eonio-dev/mr-context",
+  "homepage": "https://github.com/eonio/mr-context",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eonio-dev/mr-context.git"
+    "url": "git+https://github.com/eonio/mr-context.git"
   },
   "license": "MIT",
-  "author": "Eonio Dev <https://github.com/eonio-dev>",
+  "author": "Eonio <https://github.com/eonio>",
   "engines": {
     "node": ">=20"
   },
@@ -18,8 +18,8 @@
     ".": "./dist/index.js"
   },
   "bin": {
-    "mrc": "./dist/cli/index.js",
-    "mrc-mcp": "./dist/mcp/server.js"
+    "mrc": "dist/cli/index.js",
+    "mrc-mcp": "dist/mcp/server.js"
   },
   "files": [
     "dist",
