@@ -41,9 +41,12 @@ export async function extractWithRepomix(opts: RepomixOptions): Promise<Extracte
       args.push("--ignore", opts.excludePatterns.join(","));
     }
 
-    await execFileAsync("npx", args, {
+    // On Windows the npx shim is npx.cmd; execFile won't resolve it without a shell.
+    const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+    await execFileAsync(npx, args, {
       env: { ...process.env, GITHUB_TOKEN: opts.githubToken ?? process.env.GITHUB_TOKEN ?? "" },
       maxBuffer: 64 * 1024 * 1024,
+      shell: process.platform === "win32",
     });
 
     const rawOutput = await readFile(outputFile, "utf-8");
