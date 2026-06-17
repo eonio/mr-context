@@ -79,6 +79,106 @@
         ]
       }
     ],
+    "languageModelTools": [
+      {
+        "name": "mr-context_ask",
+        "tags": ["mr-context", "codebase", "search"],
+        "toolReferenceName": "mrcAsk",
+        "displayName": "Ask Mr. Context",
+        "modelDescription": "Retrieve the most relevant multi-repository codebase context for a natural-language question. Returns a ranked, summarized context block drawn from the Mr. Context semantic graph across all indexed repositories. Prefer calling this BEFORE answering any question about how this codebase works, where functionality lives, which files are involved, or how repositories relate — it is far cheaper than reading whole files and provides cross-repository context the open editor lacks.",
+        "userDescription": "Retrieve relevant codebase context from the Mr. Context semantic graph",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(comment-discussion)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The natural-language question or topic to retrieve context for."
+            },
+            "topK": {
+              "type": "number",
+              "description": "Optional maximum number of graph nodes to include."
+            }
+          },
+          "required": ["query"]
+        }
+      },
+      {
+        "name": "mr-context_search",
+        "tags": ["mr-context", "codebase", "search"],
+        "toolReferenceName": "mrcSearch",
+        "displayName": "Search Mr. Context graph",
+        "modelDescription": "Search the Mr. Context semantic graph for files relevant to a query and return a ranked list with summaries. Use to locate where specific functionality is implemented across the indexed repositories.",
+        "userDescription": "Search the semantic graph for relevant files",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(search)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string", "description": "What you are looking for." },
+            "topK": { "type": "number", "description": "Max results (default 10)." }
+          },
+          "required": ["query"]
+        }
+      },
+      {
+        "name": "mr-context_dependencies",
+        "tags": ["mr-context", "codebase"],
+        "toolReferenceName": "mrcDependencies",
+        "displayName": "Trace dependencies",
+        "modelDescription": "Trace the import/dependency graph outward from a given file for N hops using the Mr. Context semantic graph. Use to understand what a file depends on or how change impact propagates across repositories.",
+        "userDescription": "Trace the import graph for a file",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(type-hierarchy)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": { "type": "string", "description": "Starting file path as it appears in the graph." },
+            "hops": { "type": "number", "description": "Traversal depth (default 2, max 4)." }
+          },
+          "required": ["filePath"]
+        }
+      },
+      {
+        "name": "mr-context_pattern",
+        "tags": ["mr-context", "codebase"],
+        "toolReferenceName": "mrcPattern",
+        "displayName": "Find pattern usages",
+        "modelDescription": "Find all files implementing a specific design pattern (singleton, factory, repository, observer, middleware, strategy, decorator, hook) across the indexed repositories using the Mr. Context semantic graph.",
+        "userDescription": "Find files implementing a design pattern",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-structure)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Pattern name: singleton | factory | repository | observer | middleware | strategy | decorator | hook"
+            }
+          },
+          "required": ["pattern"]
+        }
+      },
+      {
+        "name": "mr-context_file",
+        "tags": ["mr-context", "codebase"],
+        "toolReferenceName": "mrcFile",
+        "displayName": "Get file metadata",
+        "modelDescription": "Retrieve a specific file's metadata (summary, exports, imports, detected patterns) from the Mr. Context semantic graph by its path. Use to inspect a single known file without reading its full contents.",
+        "userDescription": "Get a file's metadata from the graph",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(file-code)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": { "type": "string", "description": "File path as it appears in the graph." },
+            "repository": { "type": "string", "description": "Optional repository name filter." }
+          },
+          "required": ["filePath"]
+        }
+      }
+    ],
     "configuration": {
       "title": "Mr. Context",
       "properties": {
@@ -102,8 +202,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
-    "build": "esbuild extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js",
-    "watch": "npm run build -- --watch",
+    "typecheck": "tsc -p ../../tsconfig.vscode.json",
+    "build": "npm run typecheck && esbuild extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js",
+    "watch": "esbuild extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js --watch",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {

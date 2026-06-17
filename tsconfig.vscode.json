@@ -1,0 +1,16 @@
+{
+  // Type-checks the whole source tree INCLUDING src/vscode (which the main
+  // build excludes because the extension is bundled by esbuild, not tsc).
+  // Bundler resolution matches how esbuild treats the .js import specifiers.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -201,6 +201,7 @@ export class MrcAgent {
 
   getGraph(): SemanticGraph | null { return this.graph; }
   getModel(): vscode.LanguageModelChat | null { return this.model; }
+  getConfig(): MrcConfig { return this.config; }
   invalidateCache(): void { this.cache.clear(); }
   updateGraph(graph: SemanticGraph): void { this.graph = graph; this.cache.clear(); }
 }

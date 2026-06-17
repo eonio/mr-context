@@ -4,10 +4,15 @@ import { getAgent, resetAgent } from "../agent/registry.js";
 import { MrcPanel } from "./panel.js";
 import { detectSkill } from "../agent/skills.js";
 import type { SkillName } from "../agent/skills.js";
+import { registerMrcTools } from "./lmTools.js";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const cts = new vscode.CancellationTokenSource();
   context.subscriptions.push(cts);
+
+  // Expose Mr. Context as Language Model Tools so Copilot agent mode can use
+  // the semantic graph automatically, without an explicit @mrc mention.
+  registerMrcTools(context);
 
   // Pre-warm agent in background so first @mrc invocation is instant
   vscode.window.withProgress(

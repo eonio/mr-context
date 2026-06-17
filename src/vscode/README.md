@@ -39,6 +39,24 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 @mrc /patterns
 ```
 
+#### Copilot agent mode (automatic)
+
+Mr. Context also registers as **Language Model Tools**, so Copilot **agent mode**
+can pull multi-repository context on its own — no `@mrc` mention required. When you
+ask a question about the codebase, the agent can call:
+
+| Tool | Reference | What it does |
+|------|-----------|--------------|
+| `mr-context_ask` | `#mrcAsk` | One-shot ranked, budgeted context block for a question |
+| `mr-context_search` | `#mrcSearch` | Ranked file search over the graph |
+| `mr-context_dependencies` | `#mrcDependencies` | Trace a file's import graph N hops |
+| `mr-context_pattern` | `#mrcPattern` | Find files implementing a design pattern |
+| `mr-context_file` | `#mrcFile` | A single file's graph metadata |
+
+`mr-context_ask` is the cheapest path: it returns a token-budgeted context block in
+one call instead of the agent reading whole files. You can also `#`-reference any
+tool explicitly in a prompt.
+
 ---
 
 ## How It Works
