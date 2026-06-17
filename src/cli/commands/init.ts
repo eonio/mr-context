@@ -10,26 +10,34 @@ const MRC_BLOCK_START = "<!-- mr-context:start -->";
 const MRC_BLOCK_END = "<!-- mr-context:end -->";
 
 const MRC_COPILOT_BLOCK = `\n${MRC_BLOCK_START}
-## Mr. Context — Multi-Repository Semantic Graph
+## Mr. Context — Token Shield
 
-This workspace uses [Mr. Context](https://github.com/eonio/mr-context) to index repositories
-into a semantic graph that captures exports, imports, dependencies, and design patterns.
+This workspace uses [Mr. Context](https://github.com/eonio/mr-context) to pre-index all
+repositories into a semantic graph. The graph knows every file, export, import, and design
+pattern — use it instead of reading files directly.
 
-**Call \`#mrcAsk\` (or \`@mrc\`) before answering questions about:**
-- Where specific functionality lives across repositories
-- How files, modules, or services relate to each other
-- What a file exports or imports
-- Which design patterns are in use
+### MANDATORY: call \`#mrcAsk\` FIRST — before anything else
 
-Prefer graph results over guessing. Cite file paths from the graph — never invent paths.
+**Before writing code, reading a file, or answering any codebase question:**
+1. Call \`#mrcAsk\` with the user's full request as the query.
+2. Use the returned context to answer or generate code.
+3. Only read individual files if a specific detail is missing from the graph result.
+
+**Never:**
+- Read files directly to understand the codebase structure
+- Guess file paths, export names, or import locations
+- Call multiple codebase search tools when \`#mrcAsk\` already returned context
+
+This rule exists to prevent unnecessary token consumption. Violating it wastes credits
+without improving answer quality.
 
 **Available tools:**
 | Tool | When to use |
 |---|---|
-| \`#mrcAsk\` | Retrieve ranked context for a natural-language question |
-| \`#mrcSearch\` | Locate files relevant to a query across all indexed repos |
+| \`#mrcAsk\` | **Start here.** Retrieve ranked context for any codebase question or task |
+| \`#mrcSearch\` | Locate specific files when you know what you're looking for |
 | \`#mrcDependencies\` | Trace the import graph outward from a given file |
-| \`#mrcPattern\` | Find files implementing a design pattern (factory, repository, etc.) |
+| \`#mrcPattern\` | Find files implementing a design pattern (factory, repository, hook, etc.) |
 | \`#mrcFile\` | Get metadata for a known file path |
 ${MRC_BLOCK_END}\n`;
 
