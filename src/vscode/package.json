@@ -18,7 +18,7 @@
     "semantic-graph", "mr-context", "mrc"
   ],
   "activationEvents": ["onStartupFinished"],
-  "main": "./dist/vscode/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -102,8 +102,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
-    "build": "tsc -p tsconfig.json",
-    "watch": "tsc --watch -p tsconfig.json",
+    "build": "esbuild extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js",
+    "watch": "npm run build -- --watch",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {

@@ -1,0 +1,7 @@
+# Source — only the bundled dist/ ships
+extension.ts
+panel.ts
+**/*.ts
+**/*.map
+.vscodeignore
+node_modules

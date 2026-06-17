@@ -130,7 +130,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       "resources",
       "mr-context-icon.svg"
     );
-    participant.isSticky = true;
+    // isSticky is declared in package.json contributes.chatParticipants; not set at runtime.
     context.subscriptions.push(participant);
   } catch {
     // vscode.chat API may not be present in older VS Code builds

@@ -49,10 +49,13 @@
     "commander": "^12.0.0",
     "glob": "^10.3.12",
     "ora": "^8.0.1",
-    "typescript": "^5.4.5"
+    "typescript": ">=5.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "@types/vscode": "^1.120.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
     "tsx": "^4.9.3"
   },
   "peerDependencies": {

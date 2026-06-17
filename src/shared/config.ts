@@ -27,7 +27,7 @@ export function loadConfig(configPath?: string): MrcConfig {
       const clean = Object.fromEntries(
         Object.entries(parsed).filter(([k]) => !k.startsWith("_"))
       ) as Partial<MrcConfig>;
-      return { ...DEFAULTS, ...clean };
+      return { repositories: [], ...DEFAULTS, ...clean };
     } catch (err) {
       throw new Error(`Failed to parse config at ${path}: ${(err as Error).message}`);
     }

@@ -119,9 +119,11 @@ export class MrcAgent {
     const contextNodes = await this.getContext(userMessage);
     const systemPrompt = buildSkillPrompt(skill, contextNodes);
 
-    const tools = TOOL_DEFINITIONS.map(
-      (def) => new vscode.LanguageModelChatTool(def.name, def.description, def.inputSchema)
-    );
+    const tools: vscode.LanguageModelChatTool[] = TOOL_DEFINITIONS.map((def) => ({
+      name: def.name,
+      description: def.description,
+      inputSchema: def.inputSchema,
+    }));
 
     const messages: vscode.LanguageModelChatMessage[] = [
       vscode.LanguageModelChatMessage.User(systemPrompt),
@@ -173,13 +175,19 @@ export class MrcAgent {
       messages.push(vscode.LanguageModelChatMessage.Assistant([...textParts, ...toolCalls]));
 
       for (const call of toolCalls) {
-        const args = JSON.parse(call.input) as Record<string, unknown>;
+        const args = call.input as Record<string, unknown>;
         const result = await executeTool(
           call.name as ToolName,
           args,
           { graph: this.graph!, config: this.config }
         );
-        messages.push(vscode.LanguageModelChatMessage.Tool(call.callId, result));
+        messages.push(
+          vscode.LanguageModelChatMessage.User([
+            new vscode.LanguageModelToolResultPart(call.callId, [
+              new vscode.LanguageModelTextPart(result),
+            ]),
+          ])
+        );
       }
     }
 
