@@ -35,6 +35,12 @@ export async function getAgent(token: vscode.CancellationToken): Promise<MrcAgen
   if (!pending) {
     pending = (async () => {
       const config = loadConfig(resolveConfigPath());
+      // Anchor the graph cache to the workspace root so the extension and the
+      // `mrc` CLI (run from the project root) share the same .mrc-graph.json.
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (root && config.graphCachePath && !isAbsolute(config.graphCachePath)) {
+        config.graphCachePath = join(root, config.graphCachePath);
+      }
       const agent = new MrcAgent(config);
       await agent.initialize(token);
       instance = agent;
