@@ -18,7 +18,8 @@
     ".": "./dist/index.js"
   },
   "bin": {
-    "mrc": "./dist/cli/index.js"
+    "mrc": "./dist/cli/index.js",
+    "mrc-mcp": "./dist/mcp/server.js"
   },
   "files": [
     "dist",
@@ -44,12 +45,14 @@
     "test:query": "npx tsx scripts/eval-query.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@octokit/rest": "^20.1.1",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "glob": "^10.3.12",
     "ora": "^8.0.1",
-    "typescript": ">=5.0.0"
+    "typescript": ">=5.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

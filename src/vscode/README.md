@@ -57,6 +57,43 @@ ask a question about the codebase, the agent can call:
 one call instead of the agent reading whole files. You can also `#`-reference any
 tool explicitly in a prompt.
 
+### MCP Server (any agent)
+
+Mr. Context also ships an **MCP stdio server** (`mrc-mcp`) so *any* MCP client —
+Claude, Cursor, VS Code, or a custom agent/skill — can query the graph. It is
+read-only and ranks with BM25, so **no API key is required**. Build the graph
+first with `mrc build`, then register the server.
+
+Tools: `mrc_ask`, `mrc_search`, `mrc_dependencies`, `mrc_pattern`, `mrc_file`.
+Resource: `mrc://repositories` (configured + indexed repos, graph stats).
+
+Claude Desktop / Claude Code (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "mr-context": {
+      "command": "mrc-mcp",
+      "cwd": "/absolute/path/to/your/project"
+    }
+  }
+}
+```
+
+VS Code (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "mr-context": { "type": "stdio", "command": "mrc-mcp" }
+  }
+}
+```
+
+The server resolves `.mrc/config.json` and `.mrc/data/graph.json` from its working
+directory. Override with `MRC_CONFIG` / `MRC_GRAPH` environment variables. It
+hot-reloads the graph when `mrc build` rewrites the cache — no restart needed.
+
 ---
 
 ## How It Works
