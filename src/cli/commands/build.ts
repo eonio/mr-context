@@ -2,7 +2,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig } from "../../shared/config.js";
+import { loadConfig, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { extractRepositories } from "../../extraction/index.js";
 import { buildSyntacticGraph } from "../../graph/builder.js";
 import { saveGraph, loadGraph } from "../../graph/index.js";
@@ -11,7 +11,7 @@ export function buildCommand(): Command {
   return new Command("build")
     .description("Build or refresh the semantic graph for all configured repositories")
     .option("-f, --force", "Force rebuild, ignoring cache", false)
-    .option("-c, --config <path>", "Path to .mrcaconfig file")
+    .option("-c, --config <path>", `Path to ${CONFIG_PATH} file`)
     .option("-v, --verbose", "Show detailed output", false)
     .action(async (opts) => {
       const config = loadConfig(opts.config);
@@ -19,12 +19,12 @@ export function buildCommand(): Command {
       if (config.repositories.length === 0) {
         console.error(
           chalk.red("No repositories configured.") +
-          " Create a .mrcaconfig file or set MRC_REPOS."
+          ` Create a ${CONFIG_PATH} file or set MRC_REPOS.`
         );
         process.exit(1);
       }
 
-      const cachePath = config.graphCachePath ?? ".mrc-graph.json";
+      const cachePath = config.graphCachePath ?? GRAPH_PATH;
 
       if (!opts.force) {
         const cached = loadGraph(cachePath);

@@ -8,9 +8,9 @@
 import * as vscode from "vscode";
 import { join, isAbsolute } from "path";
 import { MrcAgent } from "./agent.js";
-import { loadConfig } from "../shared/config.js";
+import { loadConfig, CONFIG_PATH } from "../shared/config.js";
 
-// Resolve the .mrcaconfig path from the `mr-context.configPath` setting,
+// Resolve the .mrc/config.json path from the `mr-context.configPath` setting,
 // falling back to the first workspace folder root. Without this the config
 // loader would use the extension host's process.cwd(), which is not the
 // user's project.
@@ -24,7 +24,7 @@ function resolveConfigPath(): string | undefined {
   if (setting) {
     return isAbsolute(setting) || !root ? setting : join(root, setting);
   }
-  return root ? join(root, ".mrcaconfig") : undefined;
+  return root ? join(root, CONFIG_PATH) : undefined;
 }
 
 let instance: MrcAgent | null = null;
@@ -36,7 +36,7 @@ export async function getAgent(token: vscode.CancellationToken): Promise<MrcAgen
     pending = (async () => {
       const config = loadConfig(resolveConfigPath());
       // Anchor the graph cache to the workspace root so the extension and the
-      // `mrc` CLI (run from the project root) share the same .mrc-graph.json.
+      // `mrc` CLI (run from the project root) share the same .mrc/data/graph.json.
       const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (root && config.graphCachePath && !isAbsolute(config.graphCachePath)) {
         config.graphCachePath = join(root, config.graphCachePath);

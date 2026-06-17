@@ -8,7 +8,7 @@ async function main() {
 
   if (config.repositories.length === 0) {
     console.error(
-      "No repositories configured. Create a .mrcaconfig file or set MRC_REPOS."
+      "No repositories configured. Create a .mrc/config.json file or set MRC_REPOS."
     );
     process.exit(1);
   }

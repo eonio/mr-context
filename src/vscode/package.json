@@ -85,7 +85,7 @@
         "mr-context.configPath": {
           "type": "string",
           "default": "",
-          "description": "Path to .mrcaconfig file (defaults to workspace root)"
+          "description": "Path to .mrc/config.json file (defaults to .mrc/config.json in the workspace root)"
         },
         "mr-context.maxContextNodes": {
           "type": "number",

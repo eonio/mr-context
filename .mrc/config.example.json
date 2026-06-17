@@ -1,5 +1,5 @@
 {
-  "_comment": "GitHub token: set GITHUB_TOKEN env var or use `gh auth token`. Never commit the token itself.",
+  "_comment": "Copy this to .mrc/config.json. GitHub token: set GITHUB_TOKEN env var or use `gh auth token`. Never commit the token itself.",
   "repositories": [
     "https://github.com/eonio-dev/acme-payments-api",
     "https://github.com/eonio-dev/acme-shared-types",
@@ -14,6 +14,5 @@
     "**/*.test.*", "**/*.spec.*", "**/*.d.ts"
   ],
   "maxFileSizeBytes": 100000,
-  "graphCachePath": ".mrc-graph.json",
   "maxContextNodes": 25
 }

@@ -8,7 +8,7 @@ export async function extractRepositories(
 ): Promise<ExtractionResult> {
   if (config.repositories.length === 0) {
     throw new Error(
-      "No repositories configured. Add URLs to your .mrcaconfig file or set MRC_REPOS."
+      "No repositories configured. Add URLs to your .mrc/config.json file or set MRC_REPOS."
     );
   }
 

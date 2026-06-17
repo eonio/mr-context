@@ -3,6 +3,12 @@ import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import type { MrcConfig } from "./types.js";
 
+// All Mr. Context state lives under a single .mrc/ folder at the project root,
+// so users can gitignore either the whole folder or just .mrc/data/.
+export const MRC_DIR = ".mrc";
+export const CONFIG_PATH = `${MRC_DIR}/config.json`;
+export const GRAPH_PATH = `${MRC_DIR}/data/graph.json`;
+
 const DEFAULTS: Required<Omit<MrcConfig, "repositories" | "githubToken">> = {
   branch: "main",
   includePatterns: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go"],
@@ -11,7 +17,7 @@ const DEFAULTS: Required<Omit<MrcConfig, "repositories" | "githubToken">> = {
     "**/.git/**", "**/*.test.*", "**/*.spec.*"
   ],
   maxFileSizeBytes: 100_000,
-  graphCachePath: ".mrc-graph.json",
+  graphCachePath: GRAPH_PATH,
   maxContextNodes: 25,
   embeddingModel: "text-embedding-3-small",
 };
@@ -42,10 +48,6 @@ export function loadConfig(configPath?: string): MrcConfig {
 }
 
 function findConfigFile(): string | null {
-  const candidates = [".mrcaconfig", ".mrcaconfig.json", "mrc.config.json"];
-  for (const name of candidates) {
-    const full = resolve(process.cwd(), name);
-    if (existsSync(full)) return full;
-  }
-  return null;
+  const full = resolve(process.cwd(), CONFIG_PATH);
+  return existsSync(full) ? full : null;
 }

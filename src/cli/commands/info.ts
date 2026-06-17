@@ -1,13 +1,13 @@
 // src/cli/commands/info.ts
 import { Command } from "commander";
 import chalk from "chalk";
-import { loadConfig } from "../../shared/config.js";
+import { loadConfig, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { loadGraph } from "../../graph/index.js";
 
 export function infoCommand(): Command {
   return new Command("info")
     .description("Show configuration and graph statistics")
-    .option("-c, --config <path>", "Path to .mrcaconfig file")
+    .option("-c, --config <path>", `Path to ${CONFIG_PATH} file`)
     .action((opts) => {
       const config = loadConfig(opts.config);
 
@@ -20,14 +20,14 @@ export function infoCommand(): Command {
       }
       console.log(chalk.gray(`\n  Branch:       ${config.branch ?? "main"}`));
       console.log(chalk.gray(`  Max nodes:    ${config.maxContextNodes ?? 25}`));
-      console.log(chalk.gray(`  Graph cache:  ${config.graphCachePath ?? ".mrc-graph.json"}`));
+      console.log(chalk.gray(`  Graph cache:  ${config.graphCachePath ?? GRAPH_PATH}`));
       console.log(
         chalk.gray(
           `  Auth:         ${config.githubToken ? "GitHub token configured" : "no token (public repos only)"}`
         )
       );
 
-      const graph = loadGraph(config.graphCachePath ?? ".mrc-graph.json");
+      const graph = loadGraph(config.graphCachePath ?? GRAPH_PATH);
       if (graph) {
         const age = Math.round(
           (Date.now() - new Date(graph.builtAt).getTime()) / 60000

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .mrc-graph.json
+.mrc/data/
 *.vsix
 *.tsbuildinfo
 .DS_Store

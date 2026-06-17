@@ -4,6 +4,7 @@
 
 import * as vscode from "vscode";
 import type { SemanticGraph, MrcConfig } from "../shared/types.js";
+import { GRAPH_PATH } from "../shared/config.js";
 import { loadOrBuildGraph, saveGraph, enrichNodes } from "../graph/index.js";
 import { queryGraph, buildScorer } from "../graph/query.js";
 import { detectSkill, buildSkillPrompt } from "./skills.js";
@@ -66,7 +67,7 @@ export class MrcAgent {
     };
 
     this.graph.nodes = await enrichNodes(this.graph.nodes, provider);
-    saveGraph(this.graph, this.config.graphCachePath ?? ".mrc-graph.json");
+    saveGraph(this.graph, this.config.graphCachePath ?? GRAPH_PATH);
   }
 
   // ---------------------------------------------------------------------------

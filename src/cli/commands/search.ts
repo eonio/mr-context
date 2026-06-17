@@ -1,7 +1,7 @@
 // src/cli/commands/search.ts
 import { Command } from "commander";
 import chalk from "chalk";
-import { loadConfig } from "../../shared/config.js";
+import { loadConfig, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { loadGraph } from "../../graph/index.js";
 import { queryGraph } from "../../graph/query.js";
 
@@ -10,10 +10,10 @@ export function searchCommand(): Command {
     .description("Search the graph using BM25 keyword matching (no LLM required)")
     .argument("<query>", "Search query string")
     .option("-k, --top-k <number>", "Number of results to show", "10")
-    .option("-c, --config <path>", "Path to .mrcaconfig file")
+    .option("-c, --config <path>", `Path to ${CONFIG_PATH} file`)
     .action(async (query: string, opts) => {
       const config = loadConfig(opts.config);
-      const graph = loadGraph(config.graphCachePath ?? ".mrc-graph.json");
+      const graph = loadGraph(config.graphCachePath ?? GRAPH_PATH);
 
       if (!graph) {
         console.error(chalk.red("No graph found. Run `mrc build` first."));

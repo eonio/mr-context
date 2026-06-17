@@ -19,7 +19,7 @@ No external OpenAI API key required. Mr. Context uses the **VS Code LM API** (Gi
 npm install -g mr-context
 ```
 
-Create a `.mrcaconfig` in your project root (copy `.mrcaconfig.example`), then:
+Create a `.mrc/config.json` in your project root, then:
 
 ```bash
 mrc build        # Index repositories into a semantic graph
@@ -50,14 +50,14 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 5. **Deliver** — Context block injected into the Copilot Chat prompt
 
 ```
-mrc build  →  .mrc-graph.json  →  @mrc query  →  Copilot answer
+mrc build  →  .mrc/data/graph.json  →  @mrc query  →  Copilot answer
 ```
 
 ---
 
 ## Configuration
 
-Create `.mrcaconfig` in your project root:
+Create `.mrc/config.json` in your project root:
 
 ```json
 {
@@ -71,6 +71,18 @@ Create `.mrcaconfig` in your project root:
 ```
 
 Set `GITHUB_TOKEN` environment variable for private repositories.
+
+All Mr. Context state lives under `.mrc/`:
+
+```
+.mrc/
+├── config.json        # your configuration (commit this)
+└── data/
+    └── graph.json     # generated graph cache (gitignore this)
+```
+
+Add `.mrc/data/` to `.gitignore` to keep the generated cache out of version
+control, or `.mrc/` to ignore everything.
 
 ---
 
