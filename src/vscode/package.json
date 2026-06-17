@@ -2,7 +2,7 @@
   "name": "mr-context",
   "displayName": "Mr. Context",
   "description": "Multi-Repository semantic graph context for GitHub Copilot. Reduce hallucinations and token waste during AI-assisted development.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "eonio",
   "repository": {
     "type": "git",
@@ -12,12 +12,22 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["AI", "Other"],
-  "keywords": [
-    "copilot", "ai", "context", "multi-repo",
-    "semantic-graph", "mr-context", "mrc"
+  "categories": [
+    "AI",
+    "Other"
   ],
-  "activationEvents": ["onStartupFinished"],
+  "keywords": [
+    "copilot",
+    "ai",
+    "context",
+    "multi-repo",
+    "semantic-graph",
+    "mr-context",
+    "mrc"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -71,18 +81,37 @@
         "description": "Multi-repository semantic context for Copilot Chat. Ask @mrc anything about your codebase.",
         "isSticky": true,
         "commands": [
-          { "name": "query",    "description": "Answer a question about the codebase" },
-          { "name": "feature",  "description": "Plan and scaffold a new feature" },
-          { "name": "review",   "description": "Review a diff or code snippet" },
-          { "name": "onboard",  "description": "Get a developer onboarding guide" },
-          { "name": "patterns", "description": "Detect and explain design patterns" }
+          {
+            "name": "query",
+            "description": "Answer a question about the codebase"
+          },
+          {
+            "name": "feature",
+            "description": "Plan and scaffold a new feature"
+          },
+          {
+            "name": "review",
+            "description": "Review a diff or code snippet"
+          },
+          {
+            "name": "onboard",
+            "description": "Get a developer onboarding guide"
+          },
+          {
+            "name": "patterns",
+            "description": "Detect and explain design patterns"
+          }
         ]
       }
     ],
     "languageModelTools": [
       {
         "name": "mr-context_ask",
-        "tags": ["mr-context", "codebase", "search"],
+        "tags": [
+          "mr-context",
+          "codebase",
+          "search"
+        ],
         "toolReferenceName": "mrcAsk",
         "displayName": "Ask Mr. Context",
         "modelDescription": "Retrieve the most relevant multi-repository codebase context for a natural-language question. Returns a ranked, summarized context block drawn from the Mr. Context semantic graph across all indexed repositories. Prefer calling this BEFORE answering any question about how this codebase works, where functionality lives, which files are involved, or how repositories relate — it is far cheaper than reading whole files and provides cross-repository context the open editor lacks.",
@@ -101,12 +130,18 @@
               "description": "Optional maximum number of graph nodes to include."
             }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       },
       {
         "name": "mr-context_search",
-        "tags": ["mr-context", "codebase", "search"],
+        "tags": [
+          "mr-context",
+          "codebase",
+          "search"
+        ],
         "toolReferenceName": "mrcSearch",
         "displayName": "Search Mr. Context graph",
         "modelDescription": "Search the Mr. Context semantic graph for files relevant to a query and return a ranked list with summaries. Use to locate where specific functionality is implemented across the indexed repositories.",
@@ -116,15 +151,26 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "query": { "type": "string", "description": "What you are looking for." },
-            "topK": { "type": "number", "description": "Max results (default 10)." }
+            "query": {
+              "type": "string",
+              "description": "What you are looking for."
+            },
+            "topK": {
+              "type": "number",
+              "description": "Max results (default 10)."
+            }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       },
       {
         "name": "mr-context_dependencies",
-        "tags": ["mr-context", "codebase"],
+        "tags": [
+          "mr-context",
+          "codebase"
+        ],
         "toolReferenceName": "mrcDependencies",
         "displayName": "Trace dependencies",
         "modelDescription": "Trace the import/dependency graph outward from a given file for N hops using the Mr. Context semantic graph. Use to understand what a file depends on or how change impact propagates across repositories.",
@@ -134,15 +180,26 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "filePath": { "type": "string", "description": "Starting file path as it appears in the graph." },
-            "hops": { "type": "number", "description": "Traversal depth (default 2, max 4)." }
+            "filePath": {
+              "type": "string",
+              "description": "Starting file path as it appears in the graph."
+            },
+            "hops": {
+              "type": "number",
+              "description": "Traversal depth (default 2, max 4)."
+            }
           },
-          "required": ["filePath"]
+          "required": [
+            "filePath"
+          ]
         }
       },
       {
         "name": "mr-context_pattern",
-        "tags": ["mr-context", "codebase"],
+        "tags": [
+          "mr-context",
+          "codebase"
+        ],
         "toolReferenceName": "mrcPattern",
         "displayName": "Find pattern usages",
         "modelDescription": "Find all files implementing a specific design pattern (singleton, factory, repository, observer, middleware, strategy, decorator, hook) across the indexed repositories using the Mr. Context semantic graph.",
@@ -157,12 +214,17 @@
               "description": "Pattern name: singleton | factory | repository | observer | middleware | strategy | decorator | hook"
             }
           },
-          "required": ["pattern"]
+          "required": [
+            "pattern"
+          ]
         }
       },
       {
         "name": "mr-context_file",
-        "tags": ["mr-context", "codebase"],
+        "tags": [
+          "mr-context",
+          "codebase"
+        ],
         "toolReferenceName": "mrcFile",
         "displayName": "Get file metadata",
         "modelDescription": "Retrieve a specific file's metadata (summary, exports, imports, detected patterns) from the Mr. Context semantic graph by its path. Use to inspect a single known file without reading its full contents.",
@@ -172,10 +234,18 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "filePath": { "type": "string", "description": "File path as it appears in the graph." },
-            "repository": { "type": "string", "description": "Optional repository name filter." }
+            "filePath": {
+              "type": "string",
+              "description": "File path as it appears in the graph."
+            },
+            "repository": {
+              "type": "string",
+              "description": "Optional repository name filter."
+            }
           },
-          "required": ["filePath"]
+          "required": [
+            "filePath"
+          ]
         }
       }
     ],
