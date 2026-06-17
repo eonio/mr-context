@@ -1,6 +1,6 @@
 {
   "name": "mr-context",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Multi-Repository Context Agent — semantic graph context for AI-assisted development via GitHub Copilot",
   "homepage": "https://github.com/eonio/mr-context",
   "repository": {
