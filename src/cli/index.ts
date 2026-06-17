@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { buildCommand } from "./commands/build.js";
+import { initCommand } from "./commands/init.js";
 import { infoCommand } from "./commands/info.js";
 import { searchCommand } from "./commands/search.js";
 
@@ -22,6 +23,9 @@ program
     "after",
     `
 ${chalk.bold("Examples:")}
+  ${chalk.gray("# Scaffold config and register Mr. Context with Copilot")}
+  mrc init
+
   ${chalk.gray("# Index configured repositories into a semantic graph")}
   mrc build
 
@@ -36,6 +40,7 @@ ${chalk.bold("Examples:")}
 `
   );
 
+program.addCommand(initCommand());
 program.addCommand(buildCommand());
 program.addCommand(infoCommand());
 program.addCommand(searchCommand());
