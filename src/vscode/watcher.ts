@@ -153,6 +153,7 @@ export class FileWatcher {
           content,
           language: this.detectLanguage(fsPath),
           repository: entry.repoUrl,
+          branch: this.config.branch ?? "main",
           size: content.length,
         };
         graph.nodes.push(buildNode(file));
