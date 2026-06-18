@@ -107,6 +107,28 @@ function nodeId(filePath: string, repository: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Single-node builder (used by file watcher for incremental updates)
+// ---------------------------------------------------------------------------
+
+export function buildNode(file: ExtractedFile): SemanticNode {
+  const isTS = ["typescript", "javascript"].includes(file.language);
+  const { exports, imports } = isTS
+    ? extractTSFacts(file)
+    : extractGenericFacts(file);
+
+  return {
+    id: nodeId(file.path, file.repository),
+    filePath: file.path,
+    repository: file.repository,
+    language: file.language,
+    exports: [...new Set(exports)],
+    imports: [...new Set(imports)],
+    patterns: detectPatterns(file.content),
+    summary: "",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Syntactic graph builder
 // ---------------------------------------------------------------------------
 

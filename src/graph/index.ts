@@ -42,6 +42,6 @@ export async function loadOrBuildGraph(
   return graph;
 }
 
-export { buildSyntacticGraph } from "./builder.js";
+export { buildSyntacticGraph, buildNode } from "./builder.js";
 export { enrichNodes } from "./enrichment.js";
 export { queryGraph, formatContextBlock, buildScorer } from "./query.js";
