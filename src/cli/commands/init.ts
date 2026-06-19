@@ -42,8 +42,9 @@ without improving answer quality.
 ${MRC_BLOCK_END}\n`;
 
 const CONFIG_TEMPLATE = {
-  repositories: [] as string[],
-  branch: "main",
+  repositories: [
+    { url: "https://github.com/your-org/your-repo", branch: "main" },
+  ],
   includePatterns: [
     "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
     "**/*.py", "**/*.go"
