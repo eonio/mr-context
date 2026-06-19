@@ -1,9 +1,10 @@
 // src/agent/tools.ts
-import type { SemanticGraph, SemanticNode, MrcConfig, ContentCache } from "../shared/types.js";
+import { resolve } from "path";
+import type { SemanticGraph, SemanticNode, MrcConfig } from "../shared/types.js";
 import { queryGraph } from "../graph/query.js";
-import { loadContentCache } from "../graph/index.js";
+import { REPOS_DIR } from "../shared/config.js";
+import { readNodeSource } from "../extraction/index.js";
 import { Octokit } from "@octokit/rest";
-import { parseRepositoryUrl } from "../extraction/github.js";
 
 export const TOOL_DEFINITIONS = [
   {
@@ -88,7 +89,6 @@ export interface ToolContext {
   graph: SemanticGraph;
   config: MrcConfig;
   onAddRepository?: (url: string, branch: string) => Promise<SemanticGraph>;
-  contentCache?: ContentCache;
 }
 
 function formatNode(node: SemanticNode): string {
@@ -182,14 +182,14 @@ export async function executeTool(
       );
       if (!node) return `File not found in graph: ${args.filePath}`;
 
-      // Try content cache first (populated during mrc build)
-      const cache = context.contentCache ?? loadContentCache(context.config.contentCachePath);
-      const cached = cache[node.id];
-      if (cached) return `// ${node.filePath} [${node.repository}]\n\n${cached}`;
+      // Read from the local clone (source of truth since mrc build clones repos).
+      const reposDir = resolve(process.cwd(), context.config.reposDir ?? REPOS_DIR);
+      const local = await readNodeSource(graph.repositories, node.repository, node.filePath, reposDir);
+      if (local !== null) return `// ${node.filePath} [${node.repository}]\n\n${local}`;
 
-      // Fallback: fetch from GitHub
+      // Fallback: fetch from GitHub if the clone is missing this file.
       const repoMeta = graph.repositories.find((r) => r.owner + "/" + r.name === node.repository || r.url === node.repository);
-      if (!repoMeta) return `Cannot locate repository metadata for ${node.repository}. Run \`mrc build\` to refresh.`;
+      if (!repoMeta) return `File not in local clone and no repository metadata for ${node.repository}. Run \`mrc build\`.`;
       try {
         const octokit = new Octokit({ auth: context.config.githubToken ?? process.env.GITHUB_TOKEN });
         const response = await octokit.repos.getContent({
@@ -203,7 +203,7 @@ export async function executeTool(
         const content = Buffer.from(data.content, "base64").toString("utf-8");
         return `// ${node.filePath} [${node.repository}]\n\n${content}`;
       } catch (err) {
-        return `Failed to fetch ${node.filePath} from GitHub: ${(err as Error).message}`;
+        return `Failed to read ${node.filePath} (local + GitHub): ${(err as Error).message}`;
       }
     }
 

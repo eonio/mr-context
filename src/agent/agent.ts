@@ -3,9 +3,11 @@
 // This file imports from 'vscode' and must only be used in extension context.
 
 import * as vscode from "vscode";
+import { resolve } from "path";
 import type { SemanticGraph, MrcConfig } from "../shared/types.js";
-import { GRAPH_PATH } from "../shared/config.js";
-import { loadOrBuildGraph, saveGraph, enrichNodes, loadContentCache } from "../graph/index.js";
+import { GRAPH_PATH, REPOS_DIR } from "../shared/config.js";
+import { loadOrBuildGraph, saveGraph, enrichNodes } from "../graph/index.js";
+import { readNodeSource } from "../extraction/index.js";
 import { queryGraph } from "../graph/query.js";
 import { detectSkill, buildSkillPrompt } from "./skills.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
@@ -68,8 +70,11 @@ export class MrcAgent {
       return text;
     };
 
-    const contentCache = loadContentCache(this.config.contentCachePath);
-    this.graph.nodes = await enrichNodes(this.graph.nodes, provider, undefined, contentCache);
+    const reposDir = resolve(process.cwd(), this.config.reposDir ?? REPOS_DIR);
+    const repos = this.graph.repositories;
+    const getContent = (node: SemanticNode) =>
+      readNodeSource(repos, node.repository, node.filePath, reposDir).then((c) => c ?? undefined);
+    this.graph.nodes = await enrichNodes(this.graph.nodes, provider, undefined, getContent);
     saveGraph(this.graph, this.config.graphCachePath ?? GRAPH_PATH);
   }
 

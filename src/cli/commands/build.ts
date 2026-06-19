@@ -2,11 +2,10 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, CONFIG_PATH, GRAPH_PATH, CONTENT_CACHE_PATH } from "../../shared/config.js";
+import { loadConfig, resolveRepos, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { extractRepositories } from "../../extraction/index.js";
 import { buildSyntacticGraph } from "../../graph/builder.js";
-import { saveGraph, loadGraph, saveContentCache } from "../../graph/index.js";
-import type { ContentCache } from "../../shared/types.js";
+import { saveGraph, loadGraph } from "../../graph/index.js";
 
 export function buildCommand(): Command {
   return new Command("build")
@@ -39,29 +38,38 @@ export function buildCommand(): Command {
 
       console.log(chalk.bold.cyan("\n  Mr. Context") + chalk.gray(` — indexing ${config.repositories.length} repo(s)\n`));
 
-      const spinner = ora("Extracting repositories…").start();
+      const spinner = ora("Cloning repositories…").start();
       const t0 = Date.now();
 
       try {
         const { files, metadata } = await extractRepositories(config);
-        spinner.succeed(chalk.green(`${files.length} files extracted`) + chalk.gray(` (${metadata.length} repos)`));
+        const localCount = metadata.filter((m) => m.local).length;
+        const suffix = localCount > 0 ? `, ${localCount} local` : "";
+        spinner.succeed(chalk.green(`${files.length} files extracted`) + chalk.gray(` (${metadata.length} repos${suffix})`));
 
         if (opts.verbose) {
-          metadata.forEach((m) => console.log(chalk.gray(`  ${m.owner}/${m.name}: ${m.language ?? "mixed"}`)));
+          metadata.forEach((m) =>
+            console.log(chalk.gray(`  ${m.owner}/${m.name}@${m.branch}: ${m.fileCount} files`) + (m.local ? chalk.dim(" (local)") : ""))
+          );
+        }
+
+        // Warn when the in-place local repo is on a different branch than the
+        // config requests — it's indexed as checked out, not the configured branch.
+        const resolved = resolveRepos(config);
+        for (const m of metadata.filter((r) => r.local)) {
+          const configured = resolved.find((r) => r.url === m.url)?.branch;
+          if (configured && m.branch && configured !== m.branch) {
+            console.log(
+              chalk.yellow("  ⚠ ") +
+              chalk.yellow(`${m.owner}/${m.name} is checked out on "${m.branch}" but config requests "${configured}".`) +
+              chalk.gray(` Indexed the checked-out branch — switch branches or update config to match.`)
+            );
+          }
         }
 
         spinner.text = "Building semantic graph…";
         spinner.start();
         const graph = buildSyntacticGraph(files, metadata);
-
-        // Persist content cache (nodeId → source) alongside the graph.
-        // LLM enrichment runs exclusively in the VS Code extension via vscode.lm.
-        const contentCache: ContentCache = {};
-        for (const node of graph.nodes) {
-          const file = files.find((f) => f.path === node.filePath && f.repository === node.repository);
-          if (file) contentCache[node.id] = file.content;
-        }
-        saveContentCache(contentCache, config.contentCachePath ?? CONTENT_CACHE_PATH);
 
         saveGraph(graph, cachePath);
 

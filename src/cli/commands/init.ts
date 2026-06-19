@@ -63,13 +63,14 @@ export function initCommand(): Command {
     .option("--force", "Overwrite existing .mrc/config.json", false)
     .action((opts) => {
       scaffoldConfig(opts.force);
+      scaffoldGitignore();
       scaffoldCopilotInstructions();
 
       console.log();
       console.log(chalk.bold("  Next steps:"));
-      console.log(chalk.gray(`  1. Edit ${CONFIG_PATH} and add your repository URLs`));
-      console.log(chalk.gray("  2. Set the GITHUB_TOKEN env var (or run: gh auth token)"));
-      console.log(chalk.gray("  3. Run mrc build\n"));
+      console.log(chalk.gray(`  1. Edit ${CONFIG_PATH} — set each repository's url and branch`));
+      console.log(chalk.gray("  2. Set the GITHUB_TOKEN env var for private repos (or configure SSH)"));
+      console.log(chalk.gray("  3. Run mrc build — clones repos into .mrc/repos and builds the graph\n"));
     });
 }
 
@@ -84,6 +85,19 @@ function scaffoldConfig(force: boolean): void {
   mkdirSync(resolve(process.cwd(), MRC_DIR), { recursive: true });
   writeFileSync(configPath, JSON.stringify(CONFIG_TEMPLATE, null, 2) + "\n", "utf-8");
   console.log(chalk.green("  create") + `  ${CONFIG_PATH}`);
+}
+
+function scaffoldGitignore(): void {
+  // Keep .mrc/config.json tracked; ignore the generated graph (.mrc/data/) and
+  // the local clones (.mrc/repos/) — both live under .mrc.
+  const mrcIgnore = resolve(process.cwd(), MRC_DIR, ".gitignore");
+  if (existsSync(mrcIgnore)) {
+    console.log(chalk.yellow("  skip  ") + chalk.gray(`${MRC_DIR}/.gitignore already exists`));
+    return;
+  }
+  mkdirSync(resolve(process.cwd(), MRC_DIR), { recursive: true });
+  writeFileSync(mrcIgnore, "data/\nrepos/\n", "utf-8");
+  console.log(chalk.green("  create") + `  ${MRC_DIR}/.gitignore`);
 }
 
 function scaffoldCopilotInstructions(): void {

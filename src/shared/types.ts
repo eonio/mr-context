@@ -21,6 +21,8 @@ export interface RepositoryMetadata {
   starCount: number;
   fileCount: number;
   extractedAt: string;
+  local?: boolean;     // indexed in place from the working dir (not cloned)
+  localPath?: string;  // absolute base dir of this repo's files on disk
 }
 
 export interface SemanticNode {
@@ -70,16 +72,14 @@ export interface ResolvedRepo {
   branch: string;
 }
 
-export type ContentCache = Record<string, string>; // nodeId → file content
-
 export interface MrcConfig {
   repositories: RepoEntry[];
   githubToken?: string;
+  reposDir?: string;
   includePatterns?: string[];
   excludePatterns?: string[];
   maxFileSizeBytes?: number;
   graphCachePath?: string;
-  contentCachePath?: string;
   maxContextNodes?: number;
   embeddingModel?: string;
 }
