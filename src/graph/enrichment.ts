@@ -2,9 +2,12 @@
 // Semantic enrichment pass — provider injected by caller (VS Code LM API or test stub)
 // This module has NO vscode import — it is usable in both CLI and extension contexts
 
-import type { SemanticNode, ContentCache } from "../shared/types.js";
+import type { SemanticNode } from "../shared/types.js";
 
 export type EnrichmentProvider = (prompt: string) => Promise<string>;
+
+// Resolves a node's source code (from the local clone). May be async.
+export type ContentResolver = (node: SemanticNode) => Promise<string | undefined> | string | undefined;
 
 const BATCH_SIZE = 5;
 
@@ -21,7 +24,7 @@ export async function enrichNodes(
   nodes: SemanticNode[],
   provider: EnrichmentProvider,
   onProgress?: (completed: number, total: number) => void,
-  contentCache?: ContentCache
+  getContent?: ContentResolver
 ): Promise<SemanticNode[]> {
   const enriched: SemanticNode[] = [];
   let completed = 0;
@@ -31,7 +34,7 @@ export async function enrichNodes(
 
     const results = await Promise.allSettled(
       batch.map(async (node) => {
-        const content = contentCache?.[node.id];
+        const content = (await getContent?.(node)) ?? undefined;
         if (!content && node.exports.length === 0 && node.patterns.length === 0) {
           return { ...node, summary: `${node.language} file at ${node.filePath}` };
         }

@@ -8,7 +8,7 @@
 import * as vscode from "vscode";
 import { join, isAbsolute } from "path";
 import { MrcAgent } from "./agent.js";
-import { loadConfig, CONFIG_PATH } from "../shared/config.js";
+import { loadConfig, CONFIG_PATH, REPOS_DIR } from "../shared/config.js";
 
 // Resolve the .mrc/config.json path from the `mr-context.configPath` setting,
 // falling back to the first workspace folder root. Without this the config
@@ -40,6 +40,12 @@ export async function getAgent(token: vscode.CancellationToken): Promise<MrcAgen
       const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (root && config.graphCachePath && !isAbsolute(config.graphCachePath)) {
         config.graphCachePath = join(root, config.graphCachePath);
+      }
+      // Anchor the clones directory to the workspace root too, so enrichment,
+      // read_file, and the watcher all resolve the same local clones the CLI made.
+      if (root) {
+        const reposDir = config.reposDir ?? REPOS_DIR;
+        config.reposDir = isAbsolute(reposDir) ? reposDir : join(root, reposDir);
       }
       const agent = new MrcAgent(config);
       await agent.initialize(token);

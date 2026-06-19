@@ -1,8 +1,10 @@
 // src/extraction/index.ts
 import type { ExtractionResult, MrcConfig, ResolvedRepo } from "../shared/types.js";
-import { resolveRepos } from "../shared/config.js";
-import { extractWithRepomix } from "./repomix.js";
-import { fetchRepositoryMetadata } from "./github.js";
+import { resolveRepos, REPOS_DIR } from "../shared/config.js";
+import { resolve } from "path";
+import { cloneOrUpdateRepo } from "./clone.js";
+import { extractLocalFiles } from "./local.js";
+import { parseRepositoryUrl, fetchRepositoryMetadata } from "./github.js";
 
 export async function extractRepositories(
   config: MrcConfig
@@ -14,8 +16,10 @@ export async function extractRepositories(
     );
   }
 
+  const reposDir = resolve(process.cwd(), config.reposDir ?? REPOS_DIR);
+
   const results = await Promise.allSettled(
-    repos.map((repo) => extractSingle(repo, config))
+    repos.map((repo) => extractSingle(repo, config, reposDir))
   );
 
   const files = [];
@@ -36,12 +40,22 @@ export async function extractRepositories(
   return { files, metadata };
 }
 
-async function extractSingle(repo: ResolvedRepo, config: MrcConfig) {
+async function extractSingle(repo: ResolvedRepo, config: MrcConfig, reposDir: string) {
+  const localPath = await cloneOrUpdateRepo({
+    url: repo.url,
+    branch: repo.branch,
+    reposDir,
+    githubToken: config.githubToken,
+  });
+
+  const { owner, name } = parseRepositoryUrl(repo.url);
+  const repository = `${owner}/${name}`;
+
   const [files, meta] = await Promise.all([
-    extractWithRepomix({
-      url: repo.url,
+    extractLocalFiles({
+      localPath,
+      repository,
       branch: repo.branch,
-      githubToken: config.githubToken,
       includePatterns: config.includePatterns ?? [],
       excludePatterns: config.excludePatterns ?? [],
       maxFileSizeBytes: config.maxFileSizeBytes ?? 100_000,
@@ -49,9 +63,10 @@ async function extractSingle(repo: ResolvedRepo, config: MrcConfig) {
     fetchRepositoryMetadata(repo.url, config, repo.branch),
   ]);
 
-  const filtered = files.filter((f) => f.size <= (config.maxFileSizeBytes ?? 100_000));
-  return { files: filtered, metadata: meta };
+  meta.fileCount = files.length;
+  return { files, metadata: meta };
 }
 
-export { extractWithRepomix } from "./repomix.js";
+export { cloneOrUpdateRepo, repoLocalPath, repoSlug } from "./clone.js";
+export { extractLocalFiles, readNodeSource, nodeSourcePath } from "./local.js";
 export { fetchRepositoryMetadata } from "./github.js";

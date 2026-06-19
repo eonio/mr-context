@@ -4,45 +4,19 @@
 
 import * as vscode from "vscode";
 import { readFileSync, existsSync } from "fs";
-import { join, relative } from "path";
+import { join, relative, resolve } from "path";
 import type { MrcConfig, SemanticGraph, ExtractedFile, GraphEdge } from "../shared/types.js";
 import { buildNode } from "../graph/builder.js";
 import { saveGraph } from "../graph/index.js";
-import { GRAPH_PATH } from "../shared/config.js";
+import { GRAPH_PATH, REPOS_DIR } from "../shared/config.js";
+import { parseRepositoryUrl } from "../extraction/github.js";
+import { repoSlug } from "../extraction/clone.js";
 import type { MrcAgent } from "../agent/agent.js";
 
 const DEBOUNCE_MS = 2000;
 
 const WATCHED_EXTENSIONS = new Set(["ts", "tsx", "js", "jsx", "py", "go"]);
 const EXCLUDE_RE = /[/\\](node_modules|dist|build|\.git)[/\\]/;
-
-// ---------------------------------------------------------------------------
-// Git remote detection — maps a workspace folder path to a GitHub repo URL
-// ---------------------------------------------------------------------------
-
-function readGitRemoteUrl(folderPath: string): string | null {
-  const gitConfigPath = join(folderPath, ".git", "config");
-  if (!existsSync(gitConfigPath)) return null;
-
-  try {
-    const content = readFileSync(gitConfigPath, "utf-8");
-    const match = content.match(/\[remote\s+"origin"\][^\[]*url\s*=\s*(.+)/);
-    if (!match) return null;
-
-    let url = match[1].trim();
-    // Normalize SSH → HTTPS and strip .git suffix
-    url = url
-      .replace(/^git@github\.com:/, "https://github.com/")
-      .replace(/\.git$/, "");
-    return url;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeRepoUrl(url: string): string {
-  return url.replace(/\.git$/, "").replace(/\/$/, "").toLowerCase();
-}
 
 // ---------------------------------------------------------------------------
 // FileWatcher
@@ -54,7 +28,7 @@ export class FileWatcher {
   private pendingChanged = new Set<string>();
   private pendingDeleted = new Set<string>();
 
-  // Maps absolute workspace folder path → canonical repo URL from config
+  // Maps absolute clone folder path → repository "owner/name" (matches node IDs)
   private readonly folderRepoMap = new Map<string, string>();
 
   constructor(
@@ -153,7 +127,7 @@ export class FileWatcher {
           content,
           language: this.detectLanguage(fsPath),
           repository: entry.repoUrl,
-          branch: graph.repositories.find((r) => r.url === entry.repoUrl)?.branch ?? "main",
+          branch: graph.repositories.find((r) => `${r.owner}/${r.name}` === entry.repoUrl)?.branch ?? "main",
           size: content.length,
         };
         graph.nodes.push(buildNode(file));
@@ -177,23 +151,18 @@ export class FileWatcher {
   // ---------------------------------------------------------------------------
 
   private buildFolderRepoMap(): void {
-    const configUrls = this.config.repositories.map((r) =>
-      normalizeRepoUrl(typeof r === "string" ? r : r.url)
-    );
+    const reposDir = resolve(process.cwd(), this.config.reposDir ?? REPOS_DIR);
 
-    for (const folder of vscode.workspace.workspaceFolders ?? []) {
-      const remoteUrl = readGitRemoteUrl(folder.uri.fsPath);
-      if (!remoteUrl) continue;
-      const normalized = normalizeRepoUrl(remoteUrl);
-      const match = configUrls.find((u) => u === normalized);
-      if (match) {
-        // Store the original (non-normalized) URL from config for node IDs
-        const original = this.config.repositories.find((r) => {
-          const u = typeof r === "string" ? r : r.url;
-          return normalizeRepoUrl(u) === normalized;
-        });
-        const originalUrl = typeof original === "string" ? original : original?.url ?? remoteUrl;
-        this.folderRepoMap.set(folder.uri.fsPath, originalUrl);
+    for (const entry of this.config.repositories) {
+      const url = typeof entry === "string" ? entry : entry.url;
+      try {
+        const { owner, name } = parseRepositoryUrl(url);
+        const clonePath = join(reposDir, repoSlug(owner, name));
+        if (existsSync(clonePath)) {
+          this.folderRepoMap.set(clonePath, `${owner}/${name}`);
+        }
+      } catch {
+        // Unparseable URL — skip; build would have failed for it anyway.
       }
     }
   }
