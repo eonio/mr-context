@@ -5,7 +5,7 @@
 import * as vscode from "vscode";
 import type { SemanticGraph, MrcConfig } from "../shared/types.js";
 import { GRAPH_PATH } from "../shared/config.js";
-import { loadOrBuildGraph, saveGraph, enrichNodes } from "../graph/index.js";
+import { loadOrBuildGraph, saveGraph, enrichNodes, loadContentCache } from "../graph/index.js";
 import { queryGraph } from "../graph/query.js";
 import { detectSkill, buildSkillPrompt } from "./skills.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
@@ -68,7 +68,8 @@ export class MrcAgent {
       return text;
     };
 
-    this.graph.nodes = await enrichNodes(this.graph.nodes, provider);
+    const contentCache = loadContentCache(this.config.contentCachePath);
+    this.graph.nodes = await enrichNodes(this.graph.nodes, provider, undefined, contentCache);
     saveGraph(this.graph, this.config.graphCachePath ?? GRAPH_PATH);
   }
 
@@ -132,7 +133,7 @@ export class MrcAgent {
     messages: vscode.LanguageModelChatMessage[],
     tools: vscode.LanguageModelChatTool[],
     token: vscode.CancellationToken,
-    maxIterations = 3
+    maxIterations = 8
   ): AsyncGenerator<string> {
     for (let i = 0; i < maxIterations; i++) {
       if (token.isCancellationRequested) return;

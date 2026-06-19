@@ -2,10 +2,11 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
+import { loadConfig, CONFIG_PATH, GRAPH_PATH, CONTENT_CACHE_PATH } from "../../shared/config.js";
 import { extractRepositories } from "../../extraction/index.js";
 import { buildSyntacticGraph } from "../../graph/builder.js";
-import { saveGraph, loadGraph } from "../../graph/index.js";
+import { saveGraph, loadGraph, saveContentCache } from "../../graph/index.js";
+import type { ContentCache } from "../../shared/types.js";
 
 export function buildCommand(): Command {
   return new Command("build")
@@ -52,6 +53,16 @@ export function buildCommand(): Command {
         spinner.text = "Building semantic graph…";
         spinner.start();
         const graph = buildSyntacticGraph(files, metadata);
+
+        // Persist content cache (nodeId → source) alongside the graph.
+        // LLM enrichment runs exclusively in the VS Code extension via vscode.lm.
+        const contentCache: ContentCache = {};
+        for (const node of graph.nodes) {
+          const file = files.find((f) => f.path === node.filePath && f.repository === node.repository);
+          if (file) contentCache[node.id] = file.content;
+        }
+        saveContentCache(contentCache, config.contentCachePath ?? CONTENT_CACHE_PATH);
+
         saveGraph(graph, cachePath);
 
         const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
@@ -59,7 +70,7 @@ export function buildCommand(): Command {
 
         console.log(chalk.bold.cyan("\n  Mr. Context at your service."));
         console.log(chalk.gray(`  ${graph.repositories.length} repositories indexed · ${graph.nodes.length} nodes · ready.\n`));
-        console.log(chalk.yellow("  Note: Semantic enrichment runs automatically in the VS Code extension.\n"));
+        console.log(chalk.yellow("  Open VS Code to run semantic enrichment via the extension.\n"));
 
       } catch (err) {
         spinner.fail(chalk.red("Build failed: " + (err as Error).message));

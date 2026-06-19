@@ -21,8 +21,7 @@ export function infoCommand(): Command {
           console.log(chalk.gray(`    • ${r.url} `) + chalk.dim(`@${r.branch}`))
         );
       }
-      console.log(chalk.gray(`\n  Default branch: ${config.branch ?? "main"}`));
-      console.log(chalk.gray(`  Max nodes:    ${config.maxContextNodes ?? 25}`));
+      console.log(chalk.gray(`\n  Max nodes:    ${config.maxContextNodes ?? 25}`));
       console.log(chalk.gray(`  Graph cache:  ${config.graphCachePath ?? GRAPH_PATH}`));
       console.log(
         chalk.gray(

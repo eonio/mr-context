@@ -9,6 +9,9 @@ import { parseRepositoryUrl } from "./github.js";
 
 const execFileAsync = promisify(execFile);
 
+const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+const git = process.platform === "win32" ? "git.exe" : "git";
+
 export interface RepomixOptions {
   url: string;
   branch: string;
@@ -19,48 +22,87 @@ export interface RepomixOptions {
 }
 
 export async function extractWithRepomix(opts: RepomixOptions): Promise<ExtractedFile[]> {
-  const { owner, name } = parseRepositoryUrl(opts.url);
-  const repository = `${owner}/${name}`;
+  const parsed = parseRepositoryUrl(opts.url);
+  const repository = `${parsed.owner}/${parsed.name}`;
 
+  return parsed.isGitHub
+    ? extractViaRemote(opts, repository)
+    : extractViaClone(opts, repository);
+}
+
+async function extractViaRemote(opts: RepomixOptions, repository: string): Promise<ExtractedFile[]> {
   const tempDir = await mkdtemp(join(tmpdir(), "mrc-"));
   const outputFile = join(tempDir, "repomix-output.txt");
 
   try {
-    const args = [
-      "repomix",
-      "--remote", opts.url,
-      "--remote-branch", opts.branch,
-      "--output", outputFile,
-      "--output-show-line-numbers",
-      "--style", "plain",
-    ];
-    if (opts.includePatterns.length > 0) {
-      args.push("--include", opts.includePatterns.join(","));
-    }
-    if (opts.excludePatterns.length > 0) {
-      args.push("--ignore", opts.excludePatterns.join(","));
-    }
+    const args = buildRepomixArgs(opts, outputFile);
+    args.push("--remote", opts.url, "--remote-branch", opts.branch);
 
-    // On Windows the npx shim is npx.cmd; execFile won't resolve it without a shell.
-    const npx = process.platform === "win32" ? "npx.cmd" : "npx";
     await execFileAsync(npx, args, {
       env: { ...process.env, GITHUB_TOKEN: opts.githubToken ?? process.env.GITHUB_TOKEN ?? "" },
       maxBuffer: 64 * 1024 * 1024,
       shell: process.platform === "win32",
     });
 
-    const rawOutput = await readFile(outputFile, "utf-8");
-    return parseRepomixOutput(rawOutput, repository, opts.branch);
+    const raw = await readFile(outputFile, "utf-8");
+    return parseRepomixOutput(raw, repository, opts.branch);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
 }
 
-function parseRepomixOutput(
-  raw: string,
-  repository: string,
-  branch: string
-): ExtractedFile[] {
+async function extractViaClone(opts: RepomixOptions, repository: string): Promise<ExtractedFile[]> {
+  const tempDir = await mkdtemp(join(tmpdir(), "mrc-"));
+  const cloneDir = join(tempDir, "repo");
+  const outputFile = join(tempDir, "repomix-output.txt");
+
+  try {
+    await execFileAsync(git, [
+      "clone",
+      "--branch", opts.branch,
+      "--single-branch",
+      "--depth", "1",
+      opts.url,
+      cloneDir,
+    ], {
+      maxBuffer: 64 * 1024 * 1024,
+      // SSH agent and known_hosts must be configured in the environment.
+      // GIT_SSH_COMMAND can be set externally for custom key paths.
+      env: process.env,
+    });
+
+    const args = buildRepomixArgs(opts, outputFile);
+    args.push(cloneDir);
+
+    await execFileAsync(npx, args, {
+      maxBuffer: 64 * 1024 * 1024,
+      shell: process.platform === "win32",
+    });
+
+    const raw = await readFile(outputFile, "utf-8");
+    return parseRepomixOutput(raw, repository, opts.branch);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function buildRepomixArgs(opts: RepomixOptions, outputFile: string): string[] {
+  const args = [
+    "repomix",
+    "--output", outputFile,
+    "--output-show-line-numbers",
+    "--style", "plain",
+  ];
+  if (opts.includePatterns.length > 0) {
+    args.push("--include", opts.includePatterns.join(","));
+  }
+  if (opts.excludePatterns.length > 0) {
+    args.push("--ignore", opts.excludePatterns.join(","));
+  }
+  return args;
+}
+
+function parseRepomixOutput(raw: string, repository: string, branch: string): ExtractedFile[] {
   const fileBlocks = raw.split(/={3,}\nFile: (.+?)\n={3,}/);
   const files: ExtractedFile[] = [];
 

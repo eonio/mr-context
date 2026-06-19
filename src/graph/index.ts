@@ -1,8 +1,8 @@
 // src/graph/index.ts
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { dirname } from "path";
-import type { SemanticGraph, MrcConfig } from "../shared/types.js";
-import { GRAPH_PATH } from "../shared/config.js";
+import type { SemanticGraph, ContentCache, MrcConfig } from "../shared/types.js";
+import { GRAPH_PATH, CONTENT_CACHE_PATH } from "../shared/config.js";
 import { extractRepositories } from "../extraction/index.js";
 import { buildSyntacticGraph } from "./builder.js";
 
@@ -17,6 +17,22 @@ export function loadGraph(path: string): SemanticGraph | null {
     return JSON.parse(readFileSync(path, "utf-8")) as SemanticGraph;
   } catch {
     return null;
+  }
+}
+
+export function saveContentCache(cache: ContentCache, path?: string): void {
+  const target = path ?? CONTENT_CACHE_PATH;
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, JSON.stringify(cache), "utf-8");
+}
+
+export function loadContentCache(path?: string): ContentCache {
+  const target = path ?? CONTENT_CACHE_PATH;
+  if (!existsSync(target)) return {};
+  try {
+    return JSON.parse(readFileSync(target, "utf-8")) as ContentCache;
+  } catch {
+    return {};
   }
 }
 

@@ -2,24 +2,26 @@
 // Semantic enrichment pass — provider injected by caller (VS Code LM API or test stub)
 // This module has NO vscode import — it is usable in both CLI and extension contexts
 
-import type { SemanticNode } from "../shared/types.js";
+import type { SemanticNode, ContentCache } from "../shared/types.js";
 
 export type EnrichmentProvider = (prompt: string) => Promise<string>;
 
 const BATCH_SIZE = 5;
 
-function summarizePrompt(node: SemanticNode): string {
-  return `Summarize this source file in 2-3 sentences. Focus on its responsibility, key exports, and any notable design patterns. File: ${node.filePath} | Language: ${node.language} | Exports: ${node.exports.join(", ") || "none"} | Patterns: ${node.patterns.join(", ") || "none"}\n\nRespond with only the summary — no preamble, no bullet points.`;
+function summarizePrompt(node: SemanticNode, content?: string): string {
+  const header = `File: ${node.filePath} | Language: ${node.language} | Exports: ${node.exports.join(", ") || "none"} | Patterns: ${node.patterns.join(", ") || "none"}`;
+  if (content) {
+    const truncated = content.length > 8000 ? content.slice(0, 8000) + "\n... (truncated)" : content;
+    return `Summarize this source file in 2-3 sentences. Focus on its responsibility, key exports, notable design patterns, and any important internal logic.\n\n${header}\n\nSource:\n${truncated}\n\nRespond with only the summary — no preamble, no bullet points.`;
+  }
+  return `Summarize this source file in 2-3 sentences. Focus on its responsibility, key exports, and any notable design patterns.\n\n${header}\n\nRespond with only the summary — no preamble, no bullet points.`;
 }
 
-/**
- * Enrich a batch of nodes with semantic summaries.
- * Nodes with no exports and no patterns receive a minimal summary without an LLM call.
- */
 export async function enrichNodes(
   nodes: SemanticNode[],
   provider: EnrichmentProvider,
-  onProgress?: (completed: number, total: number) => void
+  onProgress?: (completed: number, total: number) => void,
+  contentCache?: ContentCache
 ): Promise<SemanticNode[]> {
   const enriched: SemanticNode[] = [];
   let completed = 0;
@@ -29,10 +31,11 @@ export async function enrichNodes(
 
     const results = await Promise.allSettled(
       batch.map(async (node) => {
-        if (node.exports.length === 0 && node.patterns.length === 0) {
+        const content = contentCache?.[node.id];
+        if (!content && node.exports.length === 0 && node.patterns.length === 0) {
           return { ...node, summary: `${node.language} file at ${node.filePath}` };
         }
-        const summary = await provider(summarizePrompt(node));
+        const summary = await provider(summarizePrompt(node, content));
         return { ...node, summary: summary.trim() };
       })
     );

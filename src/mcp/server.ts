@@ -13,12 +13,12 @@ import { statSync } from "fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { loadConfig, resolveRepos, GRAPH_PATH } from "../shared/config.js";
-import { loadGraph } from "../graph/index.js";
+import { loadConfig, resolveRepos, GRAPH_PATH, CONTENT_CACHE_PATH } from "../shared/config.js";
+import { loadGraph, loadContentCache } from "../graph/index.js";
 import { queryGraph, formatContextBlock } from "../graph/query.js";
 import { executeTool } from "../agent/tools.js";
 import type { ToolName } from "../agent/tools.js";
-import type { MrcConfig, SemanticGraph } from "../shared/types.js";
+import type { MrcConfig, SemanticGraph, ContentCache } from "../shared/types.js";
 
 function graphPath(config: MrcConfig): string {
   return process.env.MRC_GRAPH ?? config.graphCachePath ?? GRAPH_PATH;
@@ -26,9 +26,9 @@ function graphPath(config: MrcConfig): string {
 
 // Lazily load the graph and reload it if the cache file changed on disk, so a
 // long-running server picks up a fresh `mrc build` without a restart.
-let cached: { graph: SemanticGraph; config: MrcConfig; mtimeMs: number } | null = null;
+let cached: { graph: SemanticGraph; config: MrcConfig; contentCache: ContentCache; mtimeMs: number } | null = null;
 
-function getState(): { graph: SemanticGraph; config: MrcConfig } {
+function getState(): { graph: SemanticGraph; config: MrcConfig; contentCache: ContentCache } {
   const config = loadConfig(process.env.MRC_CONFIG);
   const path = graphPath(config);
 
@@ -44,9 +44,11 @@ function getState(): { graph: SemanticGraph; config: MrcConfig } {
   if (!cached || cached.mtimeMs !== mtimeMs) {
     const graph = loadGraph(path);
     if (!graph) throw new Error(`Failed to parse graph at "${path}".`);
-    cached = { graph, config, mtimeMs };
+    const contentCachePath = process.env.MRC_CONTENT_CACHE ?? config.contentCachePath ?? CONTENT_CACHE_PATH;
+    const contentCache = loadContentCache(contentCachePath);
+    cached = { graph, config, contentCache, mtimeMs };
   }
-  return { graph: cached.graph, config: cached.config };
+  return { graph: cached.graph, config: cached.config, contentCache: cached.contentCache };
 }
 
 function textResult(text: string) {
@@ -63,8 +65,8 @@ function errorResult(err: unknown) {
 // Wrap a core tool call (graph-only) behind the MCP tool callback shape.
 async function runCore(name: ToolName, args: Record<string, unknown>) {
   try {
-    const { graph, config } = getState();
-    const result = await executeTool(name, args, { graph, config });
+    const { graph, config, contentCache } = getState();
+    const result = await executeTool(name, args, { graph, config, contentCache });
     return textResult(result);
   } catch (err) {
     return errorResult(err);
@@ -137,6 +139,20 @@ server.registerTool(
     annotations: readOnly,
   },
   ({ pattern }) => runCore("find_pattern", { pattern })
+);
+
+server.registerTool(
+  "mrc_read_file",
+  {
+    description:
+      "Read the full source code of a specific file from the Mr. Context content cache or GitHub. Use after mrc_search or mrc_dependencies to inspect internal implementation details, follow imports recursively, or understand logic that summaries don't capture.",
+    inputSchema: {
+      filePath: z.string().describe("File path as it appears in the graph."),
+      repository: z.string().optional().describe("Optional repository name or URL to disambiguate."),
+    },
+    annotations: readOnly,
+  },
+  ({ filePath, repository }) => runCore("read_file", { filePath, repository })
 );
 
 server.registerTool(

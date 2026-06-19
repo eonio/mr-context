@@ -8,9 +8,9 @@ import type { MrcConfig, ResolvedRepo } from "./types.js";
 export const MRC_DIR = ".mrc";
 export const CONFIG_PATH = `${MRC_DIR}/config.json`;
 export const GRAPH_PATH = `${MRC_DIR}/data/graph.json`;
+export const CONTENT_CACHE_PATH = `${MRC_DIR}/data/content.json`;
 
-const DEFAULTS: Required<Omit<MrcConfig, "repositories" | "githubToken">> = {
-  branch: "main",
+const DEFAULTS: Required<Omit<MrcConfig, "repositories" | "githubToken" | "contentCachePath">> = {
   includePatterns: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go"],
   excludePatterns: [
     "**/node_modules/**", "**/dist/**", "**/build/**",
@@ -52,14 +52,12 @@ function findConfigFile(): string | null {
   return existsSync(full) ? full : null;
 }
 
-// Normalize the repositories list into { url, branch } pairs. A bare string
-// entry inherits the global `branch`; an object entry can override it.
-// Precedence: entry.branch > config.branch > "main".
+// Normalize the repositories list into { url, branch } pairs.
+// Bare string entries default to "main"; object entries use their own branch or "main".
 export function resolveRepos(config: MrcConfig): ResolvedRepo[] {
-  const fallback = config.branch ?? "main";
   return config.repositories.map((entry) =>
     typeof entry === "string"
-      ? { url: entry, branch: fallback }
-      : { url: entry.url, branch: entry.branch ?? fallback }
+      ? { url: entry, branch: "main" }
+      : { url: entry.url, branch: entry.branch ?? "main" }
   );
 }

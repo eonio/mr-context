@@ -1,6 +1,9 @@
 // src/agent/tools.ts
-import type { SemanticGraph, SemanticNode, MrcConfig } from "../shared/types.js";
+import type { SemanticGraph, SemanticNode, MrcConfig, ContentCache } from "../shared/types.js";
 import { queryGraph } from "../graph/query.js";
+import { loadContentCache } from "../graph/index.js";
+import { Octokit } from "@octokit/rest";
+import { parseRepositoryUrl } from "../extraction/github.js";
 
 export const TOOL_DEFINITIONS = [
   {
@@ -54,6 +57,18 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "read_file",
+    description: "Read the full source code of a file from the content cache or GitHub. Use after search_codebase or get_dependencies to inspect implementation details, internal logic, or follow imports recursively.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        filePath: { type: "string", description: "File path as it appears in the graph" },
+        repository: { type: "string", description: "Repository name or URL to disambiguate" },
+      },
+      required: ["filePath"],
+    },
+  },
+  {
     name: "add_repository",
     description: "Index a new GitHub repository into the semantic graph (triggers extraction).",
     inputSchema: {
@@ -73,6 +88,7 @@ export interface ToolContext {
   graph: SemanticGraph;
   config: MrcConfig;
   onAddRepository?: (url: string, branch: string) => Promise<SemanticGraph>;
+  contentCache?: ContentCache;
 }
 
 function formatNode(node: SemanticNode): string {
@@ -156,6 +172,39 @@ export async function executeTool(
         level.forEach((n) => lines.push(`  ${n.filePath} [${n.repository.split("/").slice(-1)[0]}]`));
       });
       return lines.join("\n");
+    }
+
+    case "read_file": {
+      const node = graph.nodes.find(
+        (n) =>
+          n.filePath.includes(args.filePath as string) &&
+          (!args.repository || n.repository.includes(args.repository as string))
+      );
+      if (!node) return `File not found in graph: ${args.filePath}`;
+
+      // Try content cache first (populated during mrc build)
+      const cache = context.contentCache ?? loadContentCache(context.config.contentCachePath);
+      const cached = cache[node.id];
+      if (cached) return `// ${node.filePath} [${node.repository}]\n\n${cached}`;
+
+      // Fallback: fetch from GitHub
+      const repoMeta = graph.repositories.find((r) => r.owner + "/" + r.name === node.repository || r.url === node.repository);
+      if (!repoMeta) return `Cannot locate repository metadata for ${node.repository}. Run \`mrc build\` to refresh.`;
+      try {
+        const octokit = new Octokit({ auth: context.config.githubToken ?? process.env.GITHUB_TOKEN });
+        const response = await octokit.repos.getContent({
+          owner: repoMeta.owner,
+          repo: repoMeta.name,
+          path: node.filePath,
+          ref: repoMeta.branch,
+        });
+        const data = response.data as { content?: string; encoding?: string };
+        if (!data.content) return `No content returned for ${node.filePath}`;
+        const content = Buffer.from(data.content, "base64").toString("utf-8");
+        return `// ${node.filePath} [${node.repository}]\n\n${content}`;
+      } catch (err) {
+        return `Failed to fetch ${node.filePath} from GitHub: ${(err as Error).message}`;
+      }
     }
 
     case "add_repository": {
