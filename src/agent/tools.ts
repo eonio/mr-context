@@ -184,7 +184,7 @@ export async function executeTool(
 
       // Read from the local clone (source of truth since mrc build clones repos).
       const reposDir = resolve(process.cwd(), context.config.reposDir ?? REPOS_DIR);
-      const local = await readNodeSource(reposDir, node.repository, node.filePath);
+      const local = await readNodeSource(graph.repositories, node.repository, node.filePath, reposDir);
       if (local !== null) return `// ${node.filePath} [${node.repository}]\n\n${local}`;
 
       // Fallback: fetch from GitHub if the clone is missing this file.

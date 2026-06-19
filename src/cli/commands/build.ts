@@ -43,10 +43,14 @@ export function buildCommand(): Command {
 
       try {
         const { files, metadata } = await extractRepositories(config);
-        spinner.succeed(chalk.green(`${files.length} files extracted`) + chalk.gray(` (${metadata.length} repos cloned)`));
+        const localCount = metadata.filter((m) => m.local).length;
+        const suffix = localCount > 0 ? `, ${localCount} local` : "";
+        spinner.succeed(chalk.green(`${files.length} files extracted`) + chalk.gray(` (${metadata.length} repos${suffix})`));
 
         if (opts.verbose) {
-          metadata.forEach((m) => console.log(chalk.gray(`  ${m.owner}/${m.name}@${m.branch}: ${m.fileCount} files`)));
+          metadata.forEach((m) =>
+            console.log(chalk.gray(`  ${m.owner}/${m.name}@${m.branch}: ${m.fileCount} files`) + (m.local ? chalk.dim(" (local)") : ""))
+          );
         }
 
         spinner.text = "Building semantic graph…";

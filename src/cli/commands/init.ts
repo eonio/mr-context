@@ -3,7 +3,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from "fs";
 import { resolve } from "path";
-import { CONFIG_PATH, MRC_DIR } from "../../shared/config.js";
+import { CONFIG_PATH, MRC_DIR, REPOS_DIR } from "../../shared/config.js";
 
 const INSTRUCTIONS_PATH = ".github/copilot-instructions.md";
 const MRC_BLOCK_START = "<!-- mr-context:start -->";
@@ -70,7 +70,7 @@ export function initCommand(): Command {
       console.log(chalk.bold("  Next steps:"));
       console.log(chalk.gray(`  1. Edit ${CONFIG_PATH} — set each repository's url and branch`));
       console.log(chalk.gray("  2. Set the GITHUB_TOKEN env var for private repos (or configure SSH)"));
-      console.log(chalk.gray("  3. Run mrc build — clones repos into .mrc/repos and builds the graph\n"));
+      console.log(chalk.gray("  3. Run mrc build — clones repos into repos/ and builds the graph\n"));
     });
 }
 
@@ -88,15 +88,31 @@ function scaffoldConfig(force: boolean): void {
 }
 
 function scaffoldGitignore(): void {
-  const gitignorePath = resolve(process.cwd(), MRC_DIR, ".gitignore");
-  if (existsSync(gitignorePath)) {
+  // Keep .mrc/config.json tracked; ignore the generated graph under .mrc/data/.
+  const mrcIgnore = resolve(process.cwd(), MRC_DIR, ".gitignore");
+  if (existsSync(mrcIgnore)) {
     console.log(chalk.yellow("  skip  ") + chalk.gray(`${MRC_DIR}/.gitignore already exists`));
-    return;
+  } else {
+    mkdirSync(resolve(process.cwd(), MRC_DIR), { recursive: true });
+    writeFileSync(mrcIgnore, "data/\n", "utf-8");
+    console.log(chalk.green("  create") + `  ${MRC_DIR}/.gitignore`);
   }
-  // Keep config.json tracked; ignore the generated graph and local clones.
-  mkdirSync(resolve(process.cwd(), MRC_DIR), { recursive: true });
-  writeFileSync(gitignorePath, "data/\nrepos/\n", "utf-8");
-  console.log(chalk.green("  create") + `  ${MRC_DIR}/.gitignore`);
+
+  // The local clones live in repos/ at the project root — ignore via root .gitignore.
+  const rootIgnore = resolve(process.cwd(), ".gitignore");
+  const entry = `${REPOS_DIR}/`;
+  if (existsSync(rootIgnore)) {
+    const content = readFileSync(rootIgnore, "utf-8");
+    if (content.split(/\r?\n/).some((line) => line.trim() === entry)) {
+      console.log(chalk.yellow("  skip  ") + chalk.gray(`.gitignore already ignores ${entry}`));
+    } else {
+      appendFileSync(rootIgnore, `${content.endsWith("\n") ? "" : "\n"}${entry}\n`, "utf-8");
+      console.log(chalk.green("  append") + `  .gitignore`);
+    }
+  } else {
+    writeFileSync(rootIgnore, `${entry}\n`, "utf-8");
+    console.log(chalk.green("  create") + `  .gitignore`);
+  }
 }
 
 function scaffoldCopilotInstructions(): void {

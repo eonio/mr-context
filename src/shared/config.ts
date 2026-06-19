@@ -8,7 +8,7 @@ import type { MrcConfig, ResolvedRepo } from "./types.js";
 export const MRC_DIR = ".mrc";
 export const CONFIG_PATH = `${MRC_DIR}/config.json`;
 export const GRAPH_PATH = `${MRC_DIR}/data/graph.json`;
-export const REPOS_DIR = `${MRC_DIR}/repos`;
+export const REPOS_DIR = "repos";
 
 const DEFAULTS: Required<Omit<MrcConfig, "repositories" | "githubToken" | "reposDir">> = {
   includePatterns: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go"],

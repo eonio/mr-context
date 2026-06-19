@@ -10,7 +10,7 @@ import { buildNode } from "../graph/builder.js";
 import { saveGraph } from "../graph/index.js";
 import { GRAPH_PATH, REPOS_DIR } from "../shared/config.js";
 import { parseRepositoryUrl } from "../extraction/github.js";
-import { repoSlug } from "../extraction/clone.js";
+import { repoSlug, readOriginUrl, sameRepo } from "../extraction/clone.js";
 import type { MrcAgent } from "../agent/agent.js";
 
 const DEBOUNCE_MS = 2000;
@@ -152,14 +152,28 @@ export class FileWatcher {
 
   private buildFolderRepoMap(): void {
     const reposDir = resolve(process.cwd(), this.config.reposDir ?? REPOS_DIR);
+    const folderOrigins = (vscode.workspace.workspaceFolders ?? []).map((f) => ({
+      path: f.uri.fsPath,
+      origin: readOriginUrl(f.uri.fsPath),
+    }));
 
     for (const entry of this.config.repositories) {
       const url = typeof entry === "string" ? entry : entry.url;
       try {
         const { owner, name } = parseRepositoryUrl(url);
+        const repository = `${owner}/${name}`;
+
+        // A workspace folder that IS this repo is indexed in place (not cloned).
+        const local = folderOrigins.find((f) => f.origin && sameRepo(f.origin, url));
+        if (local) {
+          this.folderRepoMap.set(local.path, repository);
+          continue;
+        }
+
+        // Otherwise the repo lives in a clone under reposDir.
         const clonePath = join(reposDir, repoSlug(owner, name));
         if (existsSync(clonePath)) {
-          this.folderRepoMap.set(clonePath, `${owner}/${name}`);
+          this.folderRepoMap.set(clonePath, repository);
         }
       } catch {
         // Unparseable URL — skip; build would have failed for it anyway.
@@ -175,10 +189,15 @@ export class FileWatcher {
   }
 
   private findFolder(fsPath: string): { folderPath: string; repoUrl: string } | null {
+    // Longest-prefix match: a clone nested inside the local repo's working tree
+    // (e.g. <root>/repos/B/...) must resolve to B, not the enclosing root repo.
+    let best: { folderPath: string; repoUrl: string } | null = null;
     for (const [folderPath, repoUrl] of this.folderRepoMap) {
-      if (fsPath.startsWith(folderPath)) return { folderPath, repoUrl };
+      if (fsPath.startsWith(folderPath) && (!best || folderPath.length > best.folderPath.length)) {
+        best = { folderPath, repoUrl };
+      }
     }
-    return null;
+    return best;
   }
 
   private resolveFileEntry(fsPath: string): { relPath: string; repoUrl: string } | null {

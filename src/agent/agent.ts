@@ -71,8 +71,9 @@ export class MrcAgent {
     };
 
     const reposDir = resolve(process.cwd(), this.config.reposDir ?? REPOS_DIR);
+    const repos = this.graph.repositories;
     const getContent = (node: SemanticNode) =>
-      readNodeSource(reposDir, node.repository, node.filePath).then((c) => c ?? undefined);
+      readNodeSource(repos, node.repository, node.filePath, reposDir).then((c) => c ?? undefined);
     this.graph.nodes = await enrichNodes(this.graph.nodes, provider, undefined, getContent);
     saveGraph(this.graph, this.config.graphCachePath ?? GRAPH_PATH);
   }

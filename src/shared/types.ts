@@ -21,6 +21,8 @@ export interface RepositoryMetadata {
   starCount: number;
   fileCount: number;
   extractedAt: string;
+  local?: boolean;     // indexed in place from the working dir (not cloned)
+  localPath?: string;  // absolute base dir of this repo's files on disk
 }
 
 export interface SemanticNode {

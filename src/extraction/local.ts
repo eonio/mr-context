@@ -5,24 +5,32 @@
 import { glob } from "glob";
 import { readFile, stat } from "fs/promises";
 import { join } from "path";
-import type { ExtractedFile } from "../shared/types.js";
+import type { ExtractedFile, RepositoryMetadata } from "../shared/types.js";
 import { repoSlug } from "./clone.js";
 
-// Absolute path to a graph node's source file in the local clones directory.
-// `repository` is "owner/name"; `filePath` is relative to the clone root.
-export function nodeSourcePath(reposDir: string, repository: string, filePath: string): string {
+// Absolute base dir of a repo's files on disk. Prefers the metadata localPath
+// recorded at build time (handles both in-place local repos and clones); falls
+// back to the conventional clone slug under reposDir.
+export function repoBasePath(
+  repositories: RepositoryMetadata[],
+  repository: string,
+  reposDir: string
+): string {
+  const meta = repositories.find((r) => `${r.owner}/${r.name}` === repository);
+  if (meta?.localPath) return meta.localPath;
   const [owner, name] = repository.split("/");
-  return join(reposDir, repoSlug(owner, name ?? owner), filePath);
+  return join(reposDir, repoSlug(owner, name ?? owner));
 }
 
-// Read a node's source from the local clone, or null if unavailable.
+// Read a node's source from disk, or null if unavailable.
 export async function readNodeSource(
-  reposDir: string,
+  repositories: RepositoryMetadata[],
   repository: string,
-  filePath: string
+  filePath: string,
+  reposDir: string
 ): Promise<string | null> {
   try {
-    return await readFile(nodeSourcePath(reposDir, repository, filePath), "utf-8");
+    return await readFile(join(repoBasePath(repositories, repository, reposDir), filePath), "utf-8");
   } catch {
     return null;
   }

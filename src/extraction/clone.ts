@@ -5,7 +5,7 @@
 
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import { parseRepositoryUrl } from "./github.js";
@@ -32,6 +32,44 @@ function authenticatedUrl(url: string, githubToken?: string): string {
   if (!token) return url;
   const m = url.match(/^https:\/\/github\.com\/(.+)$/);
   return m ? `https://${token}@github.com/${m[1]}` : url;
+}
+
+// Read the origin remote URL from a working tree's .git/config, or null.
+export function readOriginUrl(dir: string): string | null {
+  try {
+    const cfg = readFileSync(join(dir, ".git", "config"), "utf-8");
+    const m = cfg.match(/\[remote\s+"origin"\][^[]*?url\s*=\s*(.+)/);
+    return m ? m[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Read the currently checked-out branch name, or null if detached/unavailable.
+export function readCurrentBranch(dir: string): string | null {
+  try {
+    const head = readFileSync(join(dir, ".git", "HEAD"), "utf-8").trim();
+    const m = head.match(/^ref:\s*refs\/heads\/(.+)$/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+// True if two repo URLs point at the same repository, across protocols
+// (https/ssh/ssl/scp), by comparing parsed host + owner + name.
+export function sameRepo(a: string, b: string): boolean {
+  try {
+    const pa = parseRepositoryUrl(a);
+    const pb = parseRepositoryUrl(b);
+    return (
+      pa.host.toLowerCase() === pb.host.toLowerCase() &&
+      pa.owner.toLowerCase() === pb.owner.toLowerCase() &&
+      pa.name.toLowerCase() === pb.name.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
 }
 
 export interface CloneOptions {
