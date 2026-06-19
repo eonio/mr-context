@@ -5,8 +5,8 @@
 import * as vscode from "vscode";
 import { readFileSync, existsSync } from "fs";
 import { join, relative, resolve } from "path";
-import type { MrcConfig, SemanticGraph, ExtractedFile, GraphEdge } from "../shared/types.js";
-import { buildNode } from "../graph/builder.js";
+import type { MrcConfig, SemanticGraph, ExtractedFile } from "../shared/types.js";
+import { buildNode, buildEdges } from "../graph/builder.js";
 import { saveGraph } from "../graph/index.js";
 import { GRAPH_PATH, REPOS_DIR } from "../shared/config.js";
 import { parseRepositoryUrl } from "../extraction/github.js";
@@ -130,14 +130,14 @@ export class FileWatcher {
           branch: graph.repositories.find((r) => `${r.owner}/${r.name}` === entry.repoUrl)?.branch ?? "main",
           size: content.length,
         };
-        graph.nodes.push(buildNode(file));
+        graph.nodes.push(await buildNode(file));
       } catch {
         // File deleted between event and read — skip
       }
     }
 
     // Rebuild all edges (fast in-memory op, avoids partial edge state)
-    graph.edges = rebuildEdges(graph.nodes);
+    graph.edges = buildEdges(graph.nodes, graph.repositories);
     graph.builtAt = new Date().toISOString();
 
     const cachePath = this.config.graphCachePath ?? GRAPH_PATH;
@@ -224,62 +224,4 @@ export class FileWatcher {
     if (ext === "go") return "go";
     return ext;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Edge rebuilder — same logic as buildSyntacticGraph, extracted for reuse
-// ---------------------------------------------------------------------------
-
-function rebuildEdges(nodes: SemanticGraph["nodes"]): GraphEdge[] {
-  const edgeMap = new Map<string, GraphEdge>();
-
-  // Intra-repo import edges
-  for (const node of nodes) {
-    for (const imp of node.imports) {
-      if (!imp.startsWith(".") && !imp.startsWith("/")) continue;
-      const target = nodes.find(
-        (n) =>
-          n.repository === node.repository &&
-          n.filePath.replace(/\.[^.]+$/, "").endsWith(
-            imp.replace(/^\.\//, "").replace(/^\.\.\//, "")
-          )
-      );
-      if (target) {
-        const key = `${node.id}->${target.id}`;
-        if (!edgeMap.has(key)) {
-          edgeMap.set(key, { source: node.id, target: target.id, type: "imports", weight: 1.0 });
-        }
-      }
-    }
-  }
-
-  // Cross-repo edges via shared export names
-  const exportIndex = new Map<string, SemanticGraph["nodes"][number][]>();
-  for (const node of nodes) {
-    for (const exp of node.exports) {
-      const arr = exportIndex.get(exp) ?? [];
-      arr.push(node);
-      exportIndex.set(exp, arr);
-    }
-  }
-
-  for (const node of nodes) {
-    for (const imp of node.imports) {
-      for (const exporter of exportIndex.get(imp) ?? []) {
-        if (exporter.repository !== node.repository) {
-          const key = `${node.id}->${exporter.id}:cross`;
-          if (!edgeMap.has(key)) {
-            edgeMap.set(key, {
-              source: node.id,
-              target: exporter.id,
-              type: "shares-type",
-              weight: 0.7,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  return [...edgeMap.values()];
 }

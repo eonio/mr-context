@@ -1,6 +1,7 @@
 // src/graph/builder.ts
 // Two-pass semantic graph construction
-// Pass 1 (this file): syntactic — no LLM required
+// Pass 1 (this file): syntactic — symbol extraction via the parse/ backends
+//   (TypeScript compiler API for TS/JS, tree-sitter for Python/Go, regex fallback)
 // Pass 2: semantic enrichment — see enrichment.ts
 
 import type {
@@ -10,72 +11,10 @@ import type {
   SemanticGraph,
   RepositoryMetadata,
 } from "../shared/types.js";
+import { extractFacts } from "./parse/index.js";
 
 // ---------------------------------------------------------------------------
-// TypeScript/JavaScript structural extraction (no compiler dependency)
-// Uses regex-based approach for portability
-// ---------------------------------------------------------------------------
-
-function extractTSFacts(file: ExtractedFile): { exports: string[]; imports: string[] } {
-  const exports: string[] = [];
-  const imports: string[] = [];
-
-  // Named exports: export function/class/const/interface/type/enum
-  const exportPattern =
-    /export\s+(?:default\s+)?(?:async\s+)?(?:function|class|interface|type|enum|const|let|var)\s+(\w+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = exportPattern.exec(file.content)) !== null) {
-    if (!exports.includes(m[1])) exports.push(m[1]);
-  }
-
-  // Re-exports: export { foo, bar }
-  const reexportPattern = /export\s*\{([^}]+)\}/g;
-  while ((m = reexportPattern.exec(file.content)) !== null) {
-    m[1].split(",").forEach((name) => {
-      const trimmed = name.trim().split(/\s+as\s+/).pop()?.trim();
-      if (trimmed && /^\w+$/.test(trimmed) && !exports.includes(trimmed)) {
-        exports.push(trimmed);
-      }
-    });
-  }
-
-  // Imports: import ... from '...'
-  const importPattern = /from\s+["']([^"']+)["']/g;
-  while ((m = importPattern.exec(file.content)) !== null) {
-    const specifier = m[1];
-    if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
-      // External package — record base package name
-      const base = specifier.startsWith("@")
-        ? specifier.split("/").slice(0, 2).join("/")
-        : specifier.split("/")[0];
-      if (!imports.includes(base)) imports.push(base);
-    } else {
-      if (!imports.includes(specifier)) imports.push(specifier);
-    }
-  }
-
-  return { exports, imports };
-}
-
-function extractGenericFacts(
-  file: ExtractedFile
-): { exports: string[]; imports: string[] } {
-  const exports: string[] = [];
-  const imports: string[] = [];
-
-  const exportPattern =
-    /export\s+(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = exportPattern.exec(file.content)) !== null) exports.push(m[1]);
-
-  const importPattern = /(?:from|import)\s+["']([^"']+)["']/g;
-  while ((m = importPattern.exec(file.content)) !== null) imports.push(m[1]);
-
-  return { exports, imports };
-}
-
-// ---------------------------------------------------------------------------
-// Pattern detection
+// Pattern detection (regex over raw content — independent of symbol extraction)
 // ---------------------------------------------------------------------------
 
 const PATTERN_SIGNATURES: Array<{ name: string; pattern: RegExp }> = [
@@ -107,15 +46,11 @@ function nodeId(filePath: string, repository: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Single-node builder (used by file watcher for incremental updates)
+// Single-node builder (used by the file watcher for incremental updates)
 // ---------------------------------------------------------------------------
 
-export function buildNode(file: ExtractedFile): SemanticNode {
-  const isTS = ["typescript", "javascript"].includes(file.language);
-  const { exports, imports } = isTS
-    ? extractTSFacts(file)
-    : extractGenericFacts(file);
-
+export async function buildNode(file: ExtractedFile): Promise<SemanticNode> {
+  const { exports, imports } = await extractFacts(file.content, file.language, file.path);
   return {
     id: nodeId(file.path, file.repository),
     filePath: file.path,
@@ -129,35 +64,36 @@ export function buildNode(file: ExtractedFile): SemanticNode {
 }
 
 // ---------------------------------------------------------------------------
-// Syntactic graph builder
+// Cross-repo entry-node resolution
 // ---------------------------------------------------------------------------
 
-export function buildSyntacticGraph(
-  files: ExtractedFile[],
-  metadata: RepositoryMetadata[]
-): SemanticGraph {
-  const nodes: SemanticNode[] = [];
-  const edgeMap = new Map<string, GraphEdge>();
+// Pick the node that best represents a package's public entry point so a
+// cross-repo import links to one precise file instead of every shared name.
+function pickEntryNode(repoNodes: SemanticNode[], main?: string): SemanticNode | undefined {
+  if (repoNodes.length === 0) return undefined;
 
-  for (const file of files) {
-    const isTS = ["typescript", "javascript"].includes(file.language);
-    const { exports, imports } = isTS
-      ? extractTSFacts(file)
-      : extractGenericFacts(file);
-
-    nodes.push({
-      id: nodeId(file.path, file.repository),
-      filePath: file.path,
-      repository: file.repository,
-      language: file.language,
-      exports: [...new Set(exports)],
-      imports: [...new Set(imports)],
-      patterns: detectPatterns(file.content),
-      summary: "",
-    });
+  if (main) {
+    const wanted = main.replace(/^\.\//, "").replace(/\\/g, "/");
+    const byMain =
+      repoNodes.find((n) => n.filePath === wanted) ??
+      repoNodes.find((n) => n.filePath.replace(/\.[^.]+$/, "") === wanted.replace(/\.[^.]+$/, ""));
+    if (byMain) return byMain;
   }
 
-  // Intra-repo import edges
+  const indexNodes = repoNodes
+    .filter((n) => /(^|\/)index\.(ts|tsx|js|jsx|mjs|cjs)$/.test(n.filePath))
+    .sort((a, b) => a.filePath.split("/").length - b.filePath.split("/").length);
+  return indexNodes[0] ?? repoNodes[0];
+}
+
+// ---------------------------------------------------------------------------
+// Edge construction (shared by full build and the watcher's incremental patch)
+// ---------------------------------------------------------------------------
+
+export function buildEdges(nodes: SemanticNode[], repositories: RepositoryMetadata[]): GraphEdge[] {
+  const edgeMap = new Map<string, GraphEdge>();
+
+  // Intra-repo import edges: resolve a relative import to a file in the same repo.
   for (const node of nodes) {
     for (const imp of node.imports) {
       if (!imp.startsWith(".") && !imp.startsWith("/")) continue;
@@ -171,49 +107,65 @@ export function buildSyntacticGraph(
       if (target) {
         const key = `${node.id}->${target.id}`;
         if (!edgeMap.has(key)) {
-          edgeMap.set(key, {
-            source: node.id,
-            target: target.id,
-            type: "imports",
-            weight: 1.0,
-          });
+          edgeMap.set(key, { source: node.id, target: target.id, type: "imports", weight: 1.0 });
         }
       }
     }
   }
 
-  // Cross-repo edges via shared export names
-  const exportIndex = new Map<string, SemanticNode[]>();
-  for (const node of nodes) {
-    for (const exp of node.exports) {
-      const arr = exportIndex.get(exp) ?? [];
-      arr.push(node);
-      exportIndex.set(exp, arr);
-    }
+  // Cross-repo edges by package: an import whose specifier equals another repo's
+  // package.json name links to that repo's entry node. Precise, unlike matching
+  // on shared export names (which collides on common identifiers like `create`).
+  const entryByPackage = new Map<string, { repo: string; entryId: string }>();
+  for (const meta of repositories) {
+    if (!meta.packageName) continue;
+    const repo = `${meta.owner}/${meta.name}`;
+    const entry = pickEntryNode(nodes.filter((n) => n.repository === repo), meta.packageMain);
+    if (entry) entryByPackage.set(meta.packageName, { repo, entryId: entry.id });
   }
 
   for (const node of nodes) {
     for (const imp of node.imports) {
-      const exporters = exportIndex.get(imp) ?? [];
-      for (const exporter of exporters) {
-        if (exporter.repository !== node.repository) {
-          const key = `${node.id}->${exporter.id}:cross`;
-          if (!edgeMap.has(key)) {
-            edgeMap.set(key, {
-              source: node.id,
-              target: exporter.id,
-              type: "shares-type",
-              weight: 0.7,
-            });
-          }
+      const pkg = entryByPackage.get(imp);
+      if (pkg && pkg.repo !== node.repository) {
+        const key = `${node.id}->${pkg.entryId}:cross`;
+        if (!edgeMap.has(key)) {
+          edgeMap.set(key, { source: node.id, target: pkg.entryId, type: "imports", weight: 0.9 });
         }
       }
     }
   }
 
+  return [...edgeMap.values()];
+}
+
+// ---------------------------------------------------------------------------
+// Syntactic graph builder
+// ---------------------------------------------------------------------------
+
+export async function buildSyntacticGraph(
+  files: ExtractedFile[],
+  metadata: RepositoryMetadata[]
+): Promise<SemanticGraph> {
+  const nodes: SemanticNode[] = await Promise.all(
+    files.map(async (file) => {
+      const { exports, imports } = await extractFacts(file.content, file.language, file.path);
+      return {
+        id: nodeId(file.path, file.repository),
+        filePath: file.path,
+        repository: file.repository,
+        language: file.language,
+        exports: [...new Set(exports)],
+        imports: [...new Set(imports)],
+        patterns: detectPatterns(file.content),
+        summary: "",
+      };
+    })
+  );
+
   return {
     nodes,
-    edges: [...edgeMap.values()],
+    edges: buildEdges(nodes, metadata),
     repositories: metadata,
     builtAt: new Date().toISOString(),
     version: "1.0.0",

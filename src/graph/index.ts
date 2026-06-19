@@ -37,7 +37,7 @@ export async function loadOrBuildGraph(
   }
 
   const { files, metadata } = await extractRepositories(config);
-  const graph = buildSyntacticGraph(files, metadata);
+  const graph = await buildSyntacticGraph(files, metadata);
   saveGraph(graph, cachePath);
   return graph;
 }

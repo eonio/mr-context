@@ -1,7 +1,8 @@
 // src/extraction/index.ts
 import type { ExtractionResult, MrcConfig, ResolvedRepo } from "../shared/types.js";
 import { resolveRepos, REPOS_DIR, MRC_DIR } from "../shared/config.js";
-import { resolve, relative } from "path";
+import { resolve, relative, join } from "path";
+import { readFileSync } from "fs";
 import { cloneOrUpdateRepo, readOriginUrl, readCurrentBranch, sameRepo } from "./clone.js";
 import { extractLocalFiles } from "./local.js";
 import { parseRepositoryUrl, fetchRepositoryMetadata } from "./github.js";
@@ -95,7 +96,22 @@ async function extractSingle(
   meta.fileCount = files.length;
   meta.local = isLocal;
   meta.localPath = localPath;
+  const pkg = readPackageJson(localPath);
+  if (pkg) {
+    meta.packageName = pkg.name;
+    meta.packageMain = pkg.main;
+  }
   return { files, metadata: meta };
+}
+
+function readPackageJson(localPath: string): { name?: string; main?: string } | null {
+  try {
+    const raw = readFileSync(join(localPath, "package.json"), "utf-8");
+    const parsed = JSON.parse(raw) as { name?: string; main?: string; module?: string };
+    return { name: parsed.name, main: parsed.main ?? parsed.module };
+  } catch {
+    return null;
+  }
 }
 
 export { cloneOrUpdateRepo, repoLocalPath, repoSlug, readOriginUrl, readCurrentBranch, sameRepo } from "./clone.js";

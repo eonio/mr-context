@@ -76,7 +76,7 @@ export function buildCommand(): Command {
 
         spinner.text = "Building semantic graph…";
         spinner.start();
-        const graph = buildSyntacticGraph(files, metadata);
+        const graph = await buildSyntacticGraph(files, metadata);
 
         saveGraph(graph, cachePath);
 

@@ -23,6 +23,8 @@ export interface RepositoryMetadata {
   extractedAt: string;
   local?: boolean;     // indexed in place from the working dir (not cloned)
   localPath?: string;  // absolute base dir of this repo's files on disk
+  packageName?: string; // package.json "name" — used for cross-repo import edges
+  packageMain?: string; // package.json main/module — used to pick the entry node
 }
 
 export interface SemanticNode {
