@@ -6,47 +6,7 @@ import { loadConfig, CONFIG_PATH, GRAPH_PATH, CONTENT_CACHE_PATH } from "../../s
 import { extractRepositories } from "../../extraction/index.js";
 import { buildSyntacticGraph } from "../../graph/builder.js";
 import { saveGraph, loadGraph, saveContentCache } from "../../graph/index.js";
-import { enrichNodes, type EnrichmentProvider } from "../../graph/enrichment.js";
-import type { ContentCache, MrcConfig } from "../../shared/types.js";
-
-async function buildCliProvider(key: string, config: MrcConfig): Promise<EnrichmentProvider | null> {
-  const isAnthropic = (config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY) === key;
-  if (isAnthropic) {
-    return async (prompt: string) => {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 256,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      if (!res.ok) return "";
-      const data = await res.json() as { content: Array<{ type: string; text: string }> };
-      return data.content?.[0]?.text ?? "";
-    };
-  }
-  // OpenAI fallback
-  return async (prompt: string) => {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 256,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-    if (!res.ok) return "";
-    const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-    return data.choices?.[0]?.message?.content ?? "";
-  };
-}
+import type { ContentCache } from "../../shared/types.js";
 
 export function buildCommand(): Command {
   return new Command("build")
@@ -94,37 +54,14 @@ export function buildCommand(): Command {
         spinner.start();
         const graph = buildSyntacticGraph(files, metadata);
 
-        // Build content cache (nodeId → source) for enrichment and read_file tool
-        const contentCachePath = CONTENT_CACHE_PATH;
+        // Persist content cache (nodeId → source) alongside the graph.
+        // LLM enrichment runs exclusively in the VS Code extension via vscode.lm.
         const contentCache: ContentCache = {};
         for (const node of graph.nodes) {
           const file = files.find((f) => f.path === node.filePath && f.repository === node.repository);
           if (file) contentCache[node.id] = file.content;
         }
-        saveContentCache(contentCache, contentCachePath);
-
-        // Run enrichment at build time if an LLM key is available
-        const llmKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY
-          ?? config.openaiApiKey ?? process.env.OPENAI_API_KEY;
-
-        if (llmKey) {
-          spinner.text = "Enriching nodes with LLM summaries…";
-          const provider = await buildCliProvider(llmKey, config);
-          if (provider) {
-            let done = 0;
-            graph.nodes = await enrichNodes(
-              graph.nodes,
-              provider,
-              (completed, total) => {
-                done = completed;
-                spinner.text = `Enriching nodes… ${completed}/${total}`;
-              },
-              contentCache
-            );
-            spinner.succeed(chalk.green(`${done} nodes enriched`));
-            spinner.start();
-          }
-        }
+        saveContentCache(contentCache, config.contentCachePath ?? CONTENT_CACHE_PATH);
 
         saveGraph(graph, cachePath);
 
@@ -133,9 +70,7 @@ export function buildCommand(): Command {
 
         console.log(chalk.bold.cyan("\n  Mr. Context at your service."));
         console.log(chalk.gray(`  ${graph.repositories.length} repositories indexed · ${graph.nodes.length} nodes · ready.\n`));
-        if (!llmKey) {
-          console.log(chalk.yellow("  Tip: set ANTHROPIC_API_KEY or OPENAI_API_KEY to enrich summaries at build time.\n"));
-        }
+        console.log(chalk.yellow("  Open VS Code to run semantic enrichment via the extension.\n"));
 
       } catch (err) {
         spinner.fail(chalk.red("Build failed: " + (err as Error).message));

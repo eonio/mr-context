@@ -75,8 +75,6 @@ export type ContentCache = Record<string, string>; // nodeId → file content
 export interface MrcConfig {
   repositories: RepoEntry[];
   githubToken?: string;
-  anthropicApiKey?: string;
-  openaiApiKey?: string;
   branch?: string;
   includePatterns?: string[];
   excludePatterns?: string[];
