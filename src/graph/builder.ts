@@ -97,12 +97,13 @@ export function buildEdges(nodes: SemanticNode[], repositories: RepositoryMetada
   for (const node of nodes) {
     for (const imp of node.imports) {
       if (!imp.startsWith(".") && !imp.startsWith("/")) continue;
+      // A bare "./" or "." import targets the directory's index file.
+      const rel = imp.replace(/^(\.\.?\/)+/, "").replace(/\/$/, "") || "index";
       const target = nodes.find(
         (n) =>
           n.repository === node.repository &&
-          n.filePath.replace(/\.[^.]+$/, "").endsWith(
-            imp.replace(/^\.\//, "").replace(/^\.\.\//, "")
-          )
+          n.id !== node.id &&
+          n.filePath.replace(/\.[^.]+$/, "").endsWith(rel)
       );
       if (target) {
         const key = `${node.id}->${target.id}`;

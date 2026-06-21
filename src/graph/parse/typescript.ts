@@ -54,6 +54,34 @@ export function extractTsFacts(content: string, filePath: string): Facts {
       exports.add("default"); // export default / export =
     }
 
+    // CommonJS: require("x")
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "require") {
+      const arg = node.arguments[0];
+      if (arg && ts.isStringLiteral(arg)) addImport(arg.text);
+    }
+
+    // CommonJS exports: module.exports = …, module.exports.x = …, exports.x = …
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(node.left)) {
+      const lhs = node.left;
+      if (ts.isIdentifier(lhs.expression) && lhs.expression.text === "module" && lhs.name.text === "exports") {
+        // module.exports = …  (name the function/class if it has one, else default)
+        const rhs = node.right;
+        if ((ts.isFunctionExpression(rhs) || ts.isClassExpression(rhs)) && rhs.name) exports.add(rhs.name.text);
+        else exports.add("default");
+      } else if (ts.isIdentifier(lhs.expression) && lhs.expression.text === "exports") {
+        // exports.foo = …
+        exports.add(lhs.name.text);
+      } else if (
+        ts.isPropertyAccessExpression(lhs.expression) &&
+        ts.isIdentifier(lhs.expression.expression) &&
+        lhs.expression.expression.text === "module" &&
+        lhs.expression.name.text === "exports"
+      ) {
+        // module.exports.foo = …
+        exports.add(lhs.name.text);
+      }
+    }
+
     // Named declarations carrying an `export` modifier
     if (
       ts.isFunctionDeclaration(node) ||

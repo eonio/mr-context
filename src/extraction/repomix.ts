@@ -76,11 +76,12 @@ function parseSignatures(raw: string): Map<string, string> {
   return sig;
 }
 
-// repomix prints a summary line like "Total Tokens: 12,345 tokens".
+// repomix prints a summary line like "Total Tokens: 12,345 tokens". The
+// thousands separator is locale-dependent (comma or dot), so strip both.
 function parseTokenCount(out: string): number | null {
-  const m = out.match(/Total Tokens?:\s*([\d,]+)/i);
+  const m = out.match(/Total Tokens?:\s*([\d.,]+)/i);
   if (!m) return null;
-  const n = parseInt(m[1].replace(/,/g, ""), 10);
+  const n = parseInt(m[1].replace(/[.,]/g, ""), 10);
   return isNaN(n) ? null : n;
 }
 
@@ -92,7 +93,7 @@ function digestSignature(block: string): string {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) =>
-      /^(export|public|private|protected|async|function|class|interface|type|enum|const|def|func|fn|struct|impl)\b/.test(l)
+      /^(export|public|private|protected|async|function|class|interface|type|enum|const|let|var|def|func|fn|struct|impl|module\.exports|exports\.)\b/.test(l)
     );
   const uniq = [...new Set(lines)].slice(0, 12);
   return uniq.join(" · ");
