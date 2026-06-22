@@ -1,6 +1,6 @@
 // src/extraction/index.ts
 import type { ExtractionResult, MrcConfig, ResolvedRepo, RepositoryMetadata } from "../shared/types.js";
-import { resolveRepos, REPOS_DIR } from "../shared/config.js";
+import { resolveRepos, REPOS_DIR, multiRepoIssue } from "../shared/config.js";
 import { resolve, join } from "path";
 import { readFileSync } from "fs";
 import { cloneOrUpdateRepo, readCurrentBranch } from "./clone.js";
@@ -15,12 +15,11 @@ export interface ExtractedRepo {
 // Clone (or update) every configured repo into the workspace as a sibling of
 // .mrc, then extract its files. Returns flat files + per-repo metadata.
 export async function extractRepositories(config: MrcConfig): Promise<ExtractionResult> {
+  // Multi-repo is a hard requirement — refuse before cloning or building.
+  const issue = multiRepoIssue(config);
+  if (issue) throw new Error(issue);
+
   const repos = resolveRepos(config);
-  if (repos.length === 0) {
-    throw new Error(
-      "No repositories configured. Add entries to your .mrc/config.json file or set MRC_REPOS."
-    );
-  }
 
   const clonesDir = resolve(process.cwd(), config.reposDir ?? REPOS_DIR);
 

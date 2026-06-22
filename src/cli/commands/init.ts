@@ -44,8 +44,8 @@ export function initCommand(): Command {
 
       console.log();
       console.log(chalk.bold("  Next steps:"));
-      console.log(chalk.gray(`  1. Edit ${CONFIG_PATH} — add 2+ repositories (url + branch, optional per-repo include/exclude)`));
-      console.log(chalk.dim("     mr-context shines with 2+ repos — its edge is cross-repo context."));
+      console.log(chalk.gray(`  1. Edit ${CONFIG_PATH} — add at least 2 repositories (url + branch, optional per-repo include/exclude)`));
+      console.log(chalk.yellow("     ⚠ Multi-repo only: mrc refuses to build with fewer than 2 repos (no monorepo support, by design)."));
       console.log(chalk.gray("  2. Set the GITHUB_TOKEN env var for private repos (or configure SSH)"));
       console.log(chalk.gray("  3. Run mrc build — clones repos as siblings of .mrc and builds the graph"));
       console.log(chalk.gray("  4. In Copilot Chat, pick the \"Mr. Context Agent\" mode or run /mrc-locate\n"));

@@ -1,6 +1,6 @@
 // src/vscode/extension.ts
 import * as vscode from "vscode";
-import { getAgent, resetAgent } from "../agent/registry.js";
+import { getAgent, resetAgent, multiRepoBlock } from "../agent/registry.js";
 import { MrcPanel } from "./panel.js";
 import { detectSkill } from "../agent/skills.js";
 import type { SkillName } from "../agent/skills.js";
@@ -15,9 +15,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // the semantic graph automatically, without an explicit @mrc mention.
   registerMrcTools(context);
 
+  // Multi-repo gate: never pre-warm/build for a single repo or monorepo.
+  // Surface the rule once, clearly, and skip all graph work.
+  const startupBlock = multiRepoBlock();
+  if (startupBlock) {
+    vscode.window.showWarningMessage(`Mr. Context: ${startupBlock}`);
+  }
+
   // Pre-warm agent in background so first @mrc invocation is instant.
   // Once ready, start the file watcher for incremental graph updates.
-  vscode.window.withProgress(
+  if (!startupBlock) vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window, title: "Mr. Context: initializing…" },
     async () => {
       try {
@@ -110,6 +117,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         token: vscode.CancellationToken
       ) => {
         try {
+          // Multi-repo gate — answer clearly instead of spending tokens.
+          const block = multiRepoBlock();
+          if (block) {
+            stream.markdown(`**Mr. Context is multi-repo only.**\n\n${block}`);
+            return;
+          }
+
           const skill = detectSkill(request.prompt, request.command) as SkillName;
 
           stream.progress("Searching semantic graph…");

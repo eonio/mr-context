@@ -2,7 +2,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, resolveRepos, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
+import { loadConfig, resolveRepos, multiRepoIssue, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { extractRepositories } from "../../extraction/index.js";
 import { enrichWithRepomix } from "../../extraction/repomix.js";
 import { buildSyntacticGraph } from "../../graph/builder.js";
@@ -18,19 +18,11 @@ export function buildCommand(): Command {
     .action(async (opts) => {
       const config = loadConfig(opts.config);
 
-      if (config.repositories.length === 0) {
-        console.error(
-          chalk.red("No repositories configured.") +
-          ` Create a ${CONFIG_PATH} file or set MRC_REPOS.`
-        );
+      // Hard multi-repo gate — never clone/build for a single repo or monorepo.
+      const issue = multiRepoIssue(config);
+      if (issue) {
+        console.error(chalk.red("  ⛔ ") + chalk.yellow(issue));
         process.exit(1);
-      }
-
-      if (config.repositories.length === 1) {
-        console.log(
-          chalk.yellow("  ⚠ Only 1 repo configured.") +
-          chalk.gray(" mr-context shines with 2+ — its edge is cross-repo context.")
-        );
       }
 
       const cachePath = config.graphCachePath ?? GRAPH_PATH;

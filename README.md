@@ -9,6 +9,18 @@ Mr. Context (`mr-context`) builds a semantic graph of your GitHub repositories a
 
 No external OpenAI API key required. Mr. Context uses the **VS Code LM API** (GitHub Copilot) for all LLM calls.
 
+> ### ⚠️ This is a MULTI-repository tool — not for monorepos
+>
+> The **M** and **R** stand for **Multi-Repository**. Mr. Context exists to give
+> Copilot **cross-repo** context — how a frontend talks to its backend, what a
+> shared type touches across services. That only makes sense with **2 or more**
+> repositories.
+>
+> **It requires at least 2 repositories and refuses to run with fewer** — the CLI,
+> the VS Code extension, and the MCP server all stop with a clear message and do
+> no work (and spend no tokens) for a single repo or monorepo. If you have one
+> repo, use plain Copilot — it already sees your whole workspace.
+
 ---
 
 ## Quick Start

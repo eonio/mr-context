@@ -6,6 +6,10 @@ into a semantic graph spanning every configured repo. The graph already knows
 every file, export, import, signature, and design pattern across repos. Use it
 instead of reading files to "understand" the codebase.
 
+> Mr. Context is **multi-repository only** — it needs 2+ repos and is inactive for
+> a single repo / monorepo. If an mrc tool replies that it is inactive, do not
+> retry it; answer with your normal tools.
+
 ### Hard rules (token discipline)
 1. **mrc-first.** Before reading files or answering any codebase question, call
    `#mrcAsk` with the user's request. Use its ranked context to answer.
@@ -34,3 +38,4 @@ instead of reading files to "understand" the codebase.
 - Lead with the answer. Cite as `path:line`. Prefer tables/lists over prose.
 - Code blocks only for code. No filler, no restating the question.
 <!-- mr-context:end -->
+

@@ -8,7 +8,7 @@
 import * as vscode from "vscode";
 import { join, isAbsolute } from "path";
 import { MrcAgent } from "./agent.js";
-import { loadConfig, CONFIG_PATH, REPOS_DIR } from "../shared/config.js";
+import { loadConfig, multiRepoIssue, CONFIG_PATH, REPOS_DIR } from "../shared/config.js";
 
 // Resolve the .mrc/config.json path from the `mr-context.configPath` setting,
 // falling back to the first workspace folder root. Without this the config
@@ -27,6 +27,17 @@ function resolveConfigPath(): string | undefined {
   return root ? join(root, CONFIG_PATH) : undefined;
 }
 
+// Multi-repo gate for the extension. Returns the clear, user-facing message when
+// the workspace has fewer than the required repos, or null when OK. Cheap: loads
+// only the config, never the graph — so callers can short-circuit before any work.
+export function multiRepoBlock(): string | null {
+  try {
+    return multiRepoIssue(loadConfig(resolveConfigPath()));
+  } catch {
+    return null;
+  }
+}
+
 let instance: MrcAgent | null = null;
 let pending: Promise<MrcAgent> | null = null;
 
@@ -35,6 +46,9 @@ export async function getAgent(token: vscode.CancellationToken): Promise<MrcAgen
   if (!pending) {
     pending = (async () => {
       const config = loadConfig(resolveConfigPath());
+      // Refuse to build a graph for a single repo / monorepo.
+      const issue = multiRepoIssue(config);
+      if (issue) throw new Error(issue);
       // Anchor the graph cache to the workspace root so the extension and the
       // `mrc` CLI (run from the project root) share the same .mrc/data/graph.json.
       const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

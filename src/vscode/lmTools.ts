@@ -6,7 +6,7 @@
 // registry so the enriched graph and Copilot scorer are reused.
 
 import * as vscode from "vscode";
-import { getAgent } from "../agent/registry.js";
+import { getAgent, multiRepoBlock } from "../agent/registry.js";
 import { executeTool } from "../agent/tools.js";
 import type { ToolName } from "../agent/tools.js";
 import { formatContextBlock } from "../graph/query.js";
@@ -25,6 +25,8 @@ class AskTool implements vscode.LanguageModelTool<AskInput> {
     options: vscode.LanguageModelToolInvocationOptions<AskInput>,
     token: vscode.CancellationToken
   ): Promise<vscode.LanguageModelToolResult> {
+    const gate = multiRepoBlock();
+    if (gate) return toResult(gate);
     const agent = await getAgent(token);
     const nodes = await agent.getContext(options.input.query, options.input.topK);
     const budget = options.tokenizationOptions?.tokenBudget ?? 4000;
@@ -50,6 +52,8 @@ class CoreTool implements vscode.LanguageModelTool<Record<string, unknown>> {
     options: vscode.LanguageModelToolInvocationOptions<Record<string, unknown>>,
     token: vscode.CancellationToken
   ): Promise<vscode.LanguageModelToolResult> {
+    const gate = multiRepoBlock();
+    if (gate) return toResult(gate);
     const agent = await getAgent(token);
     const graph = agent.getGraph();
     if (!graph) return toResult("Mr. Context: the semantic graph is not ready yet. Try again shortly.");

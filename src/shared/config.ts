@@ -66,6 +66,30 @@ function findConfigFile(): string | null {
   return existsSync(full) ? full : null;
 }
 
+// Mr. Context is a MULTI-repository tool by design (the M + R are
+// Multi-Repository). It needs at least this many repos to build cross-repo
+// context, and deliberately does nothing below it so it never spends tokens on a
+// single repo / monorepo where it adds no value.
+export const MIN_REPOS = 2;
+
+export function repoCount(config: MrcConfig): number {
+  return config.repositories?.length ?? 0;
+}
+
+// Single source of truth for the multi-repo rule. Returns a clear, user-facing
+// message when fewer than MIN_REPOS repos are configured, or null when OK.
+export function multiRepoIssue(config: MrcConfig): string | null {
+  const n = repoCount(config);
+  if (n >= MIN_REPOS) return null;
+  return (
+    `Mr. Context is a multi-repository tool — the “M” and “R” stand for Multi-Repository. ` +
+    `It needs at least ${MIN_REPOS} repositories in ${CONFIG_PATH}, but found ${n}. ` +
+    `Add a second repository (e.g. a frontend + its backend, or a service + its shared types) ` +
+    `so it can build cross-repo context. It does nothing for a single repo or monorepo, by ` +
+    `design, to avoid wasting tokens where it adds no value.`
+  );
+}
+
 // Derive a clone folder name from a repo URL: the last path segment, minus a
 // trailing .git. Works across https/ssh/scp URL forms without parsing the host.
 export function repoNameFromUrl(url: string): string {

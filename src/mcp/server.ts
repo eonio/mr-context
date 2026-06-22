@@ -13,7 +13,7 @@ import { statSync, readFileSync } from "fs";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { loadConfig, resolveRepos, GRAPH_PATH } from "../shared/config.js";
+import { loadConfig, resolveRepos, multiRepoIssue, GRAPH_PATH } from "../shared/config.js";
 import { loadGraph } from "../graph/index.js";
 import { queryGraph, formatContextBlock } from "../graph/query.js";
 import { executeTool } from "../agent/tools.js";
@@ -30,6 +30,11 @@ let cached: { graph: SemanticGraph; config: MrcConfig; mtimeMs: number } | null 
 
 function getState(): { graph: SemanticGraph; config: MrcConfig } {
   const config = loadConfig(process.env.MRC_CONFIG);
+
+  // Multi-repo gate — refuse to serve a single-repo / monorepo config.
+  const issue = multiRepoIssue(config);
+  if (issue) throw new Error(issue);
+
   const path = graphPath(config);
 
   let mtimeMs = 0;

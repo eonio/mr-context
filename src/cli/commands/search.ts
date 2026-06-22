@@ -1,7 +1,7 @@
 // src/cli/commands/search.ts
 import { Command } from "commander";
 import chalk from "chalk";
-import { loadConfig, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
+import { loadConfig, multiRepoIssue, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { loadGraph } from "../../graph/index.js";
 import { queryGraph } from "../../graph/query.js";
 
@@ -13,6 +13,13 @@ export function searchCommand(): Command {
     .option("-c, --config <path>", `Path to ${CONFIG_PATH} file`)
     .action(async (query: string, opts) => {
       const config = loadConfig(opts.config);
+
+      const issue = multiRepoIssue(config);
+      if (issue) {
+        console.error(chalk.red("  ⛔ ") + chalk.yellow(issue));
+        process.exit(1);
+      }
+
       const graph = loadGraph(config.graphCachePath ?? GRAPH_PATH);
 
       if (!graph) {

@@ -1,7 +1,7 @@
 // src/cli/commands/info.ts
 import { Command } from "commander";
 import chalk from "chalk";
-import { loadConfig, resolveRepos, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
+import { loadConfig, resolveRepos, multiRepoIssue, CONFIG_PATH, GRAPH_PATH } from "../../shared/config.js";
 import { loadGraph } from "../../graph/index.js";
 
 export function infoCommand(): Command {
@@ -28,6 +28,13 @@ export function infoCommand(): Command {
           `  Auth:         ${config.githubToken ? "GitHub token configured" : "no token (public repos only)"}`
         )
       );
+
+      // Multi-repo gate — show the rule loudly and stop before graph stats.
+      const issue = multiRepoIssue(config);
+      if (issue) {
+        console.log("\n" + chalk.red("  ⛔ ") + chalk.yellow(issue) + "\n");
+        return;
+      }
 
       const graph = loadGraph(config.graphCachePath ?? GRAPH_PATH);
       if (graph) {
