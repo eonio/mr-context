@@ -6,6 +6,7 @@ import { buildCommand } from "./commands/build.js";
 import { initCommand } from "./commands/init.js";
 import { infoCommand } from "./commands/info.js";
 import { searchCommand } from "./commands/search.js";
+import { extensionCommand } from "./commands/extension.js";
 
 const VERSION = "1.0.0";
 
@@ -37,6 +38,9 @@ ${chalk.bold("Examples:")}
 
   ${chalk.gray("# Force a full rebuild")}
   mrc build --force
+
+  ${chalk.gray("# Build + (re)install the VS Code extension from latest source")}
+  mrc extension update
 `
   );
 
@@ -44,5 +48,6 @@ program.addCommand(initCommand());
 program.addCommand(buildCommand());
 program.addCommand(infoCommand());
 program.addCommand(searchCommand());
+program.addCommand(extensionCommand());
 
 program.parse(process.argv);

@@ -43,7 +43,20 @@ mrc search "payment routing"  # Search without an LLM
 
 ### VS Code Extension
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=eonio.mr-context) or from a `.vsix` file, then use `@mrc` in Copilot Chat:
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=eonio.mr-context), or let the CLI manage it (the npm package bundles the matching `.vsix`):
+
+```bash
+mrc extension install     # install the extension into VS Code
+mrc extension update      # rebuild from latest source + reinstall (--force)
+mrc extension remove      # uninstall it
+mrc extension build       # just build a .vsix (from the repo)
+```
+
+> `install`/`update` use the `code` CLI — enable it in VS Code via Command Palette →
+> "Shell Command: Install 'code' command in PATH". From a global npm install, the
+> bundled `.vsix` is used; from the repo, it builds from source.
+
+Then use `@mrc` in Copilot Chat:
 
 ```
 @mrc How does payment routing work?
