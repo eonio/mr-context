@@ -4,6 +4,7 @@ import type { SemanticGraph, SemanticNode, MrcConfig } from "../shared/types.js"
 import { queryGraph } from "../graph/query.js";
 import { REPOS_DIR } from "../shared/config.js";
 import { readNodeSource } from "../extraction/index.js";
+import { clamp, clampFile, clampList } from "./guardrails.js";
 import { Octokit } from "@octokit/rest";
 
 export const TOOL_DEFINITIONS = [
@@ -96,6 +97,7 @@ function formatNode(node: SemanticNode): string {
   return [
     `File: ${node.filePath} [${repo}]`,
     node.summary ? `Summary: ${node.summary}` : null,
+    node.signature ? `Signature: ${node.signature}` : null,
     node.exports.length > 0 ? `Exports: ${node.exports.join(", ")}` : null,
     node.imports.length > 0 ? `Imports: ${node.imports.slice(0, 5).join(", ")}` : null,
     node.patterns.length > 0 ? `Patterns: ${node.patterns.join(", ")}` : null,
@@ -114,7 +116,7 @@ export async function executeTool(
   switch (name) {
     case "search_codebase": {
       const nodes = await queryGraph(graph, args.query as string, Math.min((args.topK as number) ?? 10, 25));
-      return nodes.length === 0 ? "No results." : nodes.map(formatNode).join("\n\n---\n\n");
+      return clampList(nodes.map(formatNode));
     }
 
     case "get_file": {
@@ -171,7 +173,7 @@ export async function executeTool(
         lines.push(`\nHop ${i}:`);
         level.forEach((n) => lines.push(`  ${n.filePath} [${n.repository.split("/").slice(-1)[0]}]`));
       });
-      return lines.join("\n");
+      return clamp(lines.join("\n"));
     }
 
     case "read_file": {
@@ -185,7 +187,7 @@ export async function executeTool(
       // Read from the local clone (source of truth since mrc build clones repos).
       const reposDir = resolve(process.cwd(), context.config.reposDir ?? REPOS_DIR);
       const local = await readNodeSource(graph.repositories, node.repository, node.filePath, reposDir);
-      if (local !== null) return `// ${node.filePath} [${node.repository}]\n\n${local}`;
+      if (local !== null) return clampFile(node.repository, node.filePath, local);
 
       // Fallback: fetch from GitHub if the clone is missing this file.
       const repoMeta = graph.repositories.find((r) => r.owner + "/" + r.name === node.repository || r.url === node.repository);
@@ -201,7 +203,7 @@ export async function executeTool(
         const data = response.data as { content?: string; encoding?: string };
         if (!data.content) return `No content returned for ${node.filePath}`;
         const content = Buffer.from(data.content, "base64").toString("utf-8");
-        return `// ${node.filePath} [${node.repository}]\n\n${content}`;
+        return clampFile(node.repository, node.filePath, content);
       } catch (err) {
         return `Failed to read ${node.filePath} (local + GitHub): ${(err as Error).message}`;
       }
