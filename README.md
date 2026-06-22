@@ -101,6 +101,164 @@ hot-reloads the graph when `mrc build` rewrites the cache — no restart needed.
 
 ---
 
+## Step-by-step: Mr. Context + VS Code Copilot
+
+A complete walkthrough, from zero to a token-efficient, multi-repo Copilot. The
+goal is that Copilot answers from the **pre-built graph** instead of reading whole
+files — which is what burns tokens.
+
+### Step 1 — Install both pieces
+
+```bash
+npm install -g mr-context          # the CLI (builds the graph)
+```
+
+Then install the **Mr. Context** extension from the VS Code Marketplace (or a
+`.vsix`). The CLI builds the graph; the extension serves it to Copilot.
+
+> Prerequisites: Node 20+, `git`, and GitHub Copilot signed in inside VS Code.
+
+### Step 2 — Create a workspace folder
+
+Mr. Context treats a **workspace** as a container: `.mrc/` holds the config and
+graph, and each repo is cloned in as a sibling. Make an empty folder and open it
+in VS Code:
+
+```bash
+mkdir my-product && cd my-product
+code .
+```
+
+Target layout once you build:
+
+```
+my-product/
+├── .mrc/            # config + graph + repomix artifacts
+├── api/             # clone (a repo)
+├── web/             # clone (another repo)
+└── shared-types/    # clone (a third repo)
+```
+
+### Step 3 — Scaffold config + Copilot assets
+
+```bash
+mrc init
+```
+
+This generates, idempotently:
+
+| File | Purpose |
+|------|---------|
+| `.mrc/config.json` | your repo list + include/exclude |
+| `.github/copilot-instructions.md` | **Token Shield** — tells Copilot to use the graph first, answer with results not reasoning |
+| `.github/chatmodes/mrc.chatmode.md` | a selectable **"Mr. Context Agent"** chat mode |
+| `.github/instructions/mrc-tools.instructions.md` | the deterministic tool list + guardrails |
+| `.github/prompts/mrc-*.prompt.md` | reusable `/mrc-locate`, `/mrc-trace`, `/mrc-edit` skills |
+
+### Step 4 — Add your repositories
+
+Edit `.mrc/config.json`. Each repo takes a `branch`, an optional clone-folder
+`name`, and optional per-repo `includePatterns` / `excludePatterns`:
+
+```json
+{
+  "repositories": [
+    {
+      "url": "https://github.com/your-org/api",
+      "branch": "main",
+      "includePatterns": ["src/**/*.ts"],
+      "excludePatterns": ["**/*.test.ts"]
+    },
+    { "url": "https://github.com/your-org/web", "branch": "main" },
+    { "url": "https://github.com/your-org/shared-types", "branch": "develop", "name": "shared-types" }
+  ],
+  "includePatterns": ["**/*.ts", "**/*.tsx", "**/*.py", "**/*.go"],
+  "excludePatterns": ["**/node_modules/**", "**/dist/**"],
+  "maxContextNodes": 25,
+  "repomix": true
+}
+```
+
+> **Tip:** mr-context's edge is *cross-repo* context. Add 2+ related repos (e.g. a
+> frontend, its backend, and shared types) so Copilot can answer questions that
+> span them.
+
+For private repos, export a token first (or use SSH):
+
+```bash
+export GITHUB_TOKEN=$(gh auth token)   # or your PAT
+```
+
+### Step 5 — Build the graph
+
+```bash
+mrc build
+```
+
+This clones each repo as a sibling, extracts a deterministic graph (TypeScript
+compiler + tree-sitter, **no LLM**), then runs `repomix --compress` to pack each
+repo into token-efficient signatures. Inspect the result:
+
+```bash
+mrc info                              # nodes, edges, repos, token totals
+mrc search "where are webhooks verified"   # BM25 search, no LLM, instant
+```
+
+Re-run `mrc build` whenever remote repos change. Locally, the VS Code extension's
+**file watcher** keeps the graph live as you edit — no manual rebuild needed.
+
+### Step 6 — Use it in Copilot (three ways)
+
+**a) Agent mode (automatic, recommended).** Open Copilot Chat in **Agent** mode and
+just ask. The `copilot-instructions.md` steers Copilot to call `#mrcAsk` first:
+
+```
+How does the web app authenticate against the API?
+```
+
+Copilot calls `#mrcAsk` once, gets ranked cross-repo context, and answers — instead
+of opening dozens of files.
+
+**b) The Mr. Context chat mode.** In the chat mode dropdown, pick **"Mr. Context
+Agent"**. It's locked to the deterministic mrc tools and an output style that emits
+results, not reasoning — the cheapest mode for codebase Q&A and edits.
+
+**c) Reusable skills (slash commands).** The scaffolded prompts appear as commands:
+
+```
+/mrc-locate query: rate-limiter middleware
+/mrc-trace          (with a file open)
+/mrc-edit task: add an Idempotency-Key header to all POST requests in the api client
+```
+
+You can also `#`-reference any tool inline in a normal prompt:
+
+```
+Using #mrcDependencies, what breaks if I change the User type in shared-types?
+```
+
+### Step 7 — Confirm the token savings
+
+Ask the same architecture question with the extension **disabled** vs **enabled**,
+and watch the credits counter at the bottom of each Copilot reply. With the graph,
+a general "what is this and how do the repos relate" question typically drops from
+~10 credits to ~1, because Copilot reads the graph instead of the files.
+
+> **Pick the right effort.** For codebase Q&A, a **low** reasoning effort + the
+> Mr. Context mode is the cheapest. Save **medium/high** effort for `/mrc-edit` and
+> multi-step changes where deeper reasoning actually pays off.
+
+### Token-efficiency cheat sheet
+
+- **Locate, don't browse:** `#mrcAsk` / `#mrcSearch` instead of opening files.
+- **Trace, don't grep:** `#mrcDependencies` for impact analysis.
+- **One retrieval per task:** the context block is already ranked and budgeted.
+- **Edit at `path:line`:** locate first, then `editFiles` — never re-read a file to
+  "understand" it before editing.
+- **Keep 2+ repos indexed:** cross-repo answers are the whole point.
+
+---
+
 ## How It Works
 
 1. **Clone** — Each configured repo is cloned at its branch as a sibling of `.mrc`
