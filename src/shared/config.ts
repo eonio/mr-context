@@ -25,7 +25,7 @@ const DEFAULT_EXCLUDE = [
 ];
 
 const DEFAULTS: Required<
-  Omit<MrcConfig, "repositories" | "githubToken" | "reposDir">
+  Omit<MrcConfig, "repositories" | "githubToken" | "reposDir" | "maxAgentIterations">
 > = {
   includePatterns: DEFAULT_INCLUDE,
   excludePatterns: DEFAULT_EXCLUDE,

@@ -182,7 +182,12 @@ export class MrcAgent {
       vscode.LanguageModelChatMessage.User(userMessage),
     ];
 
-    yield* this.toolLoop(messages, tools, token);
+    // Code-generating skills need more tool rounds (search → read → write) than
+    // a plain Q&A. A config value overrides the per-skill default.
+    const codeGen = skill === "feature" || skill === "review";
+    const maxIterations = this.config.maxAgentIterations ?? (codeGen ? 16 : 8);
+
+    yield* this.toolLoop(messages, tools, token, maxIterations);
   }
 
   // ---------------------------------------------------------------------------
@@ -243,7 +248,40 @@ export class MrcAgent {
       }
     }
 
-    yield "\n\n*(Maximum reasoning iterations reached.)*";
+    // Out of tool rounds but the model still wanted to call tools — force one
+    // final pass with NO tools so it must produce its best answer/code from the
+    // context gathered so far. Never leave the user with an empty stop.
+    yield* this.forceFinalAnswer(messages, token);
+  }
+
+  // Final completion with tools disabled: the model can only emit text, so it
+  // delivers the result instead of looping further.
+  private async *forceFinalAnswer(
+    messages: vscode.LanguageModelChatMessage[],
+    token: vscode.CancellationToken
+  ): AsyncGenerator<string> {
+    messages.push(
+      vscode.LanguageModelChatMessage.User(
+        "Tool-call budget reached. Do not request more tools. Produce your best, complete answer — including any code — using the context already gathered."
+      )
+    );
+    try {
+      const res = await this.model!.sendRequest(messages, {}, token); // no tools
+      let any = false;
+      for await (const part of res.stream) {
+        if (part instanceof vscode.LanguageModelTextPart) {
+          any = true;
+          yield part.value;
+        }
+      }
+      if (any) {
+        yield "\n\n*(Reached the tool-call limit — answered from the context gathered so far. Ask me to continue for more.)*";
+        return;
+      }
+    } catch {
+      /* fall through to the note */
+    }
+    yield "\n\n*(Reached the tool-call limit. Ask me to continue, or narrow the request.)*";
   }
 
   // ---------------------------------------------------------------------------

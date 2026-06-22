@@ -95,4 +95,5 @@ export interface MrcConfig {
   maxContextNodes?: number;
   embeddingModel?: string;
   repomix?: boolean;          // run repomix enrichment during build (default: true)
+  maxAgentIterations?: number; // tool-call rounds per @mrc turn; overrides the skill default
 }
